@@ -59,6 +59,10 @@ The runtime feature work is tracked under
   optional bend limits, weighted local-rotation output, and compiled graph execution.
 - Stable CharacterId-ordered serial and bounded `std::jthread` batch evaluation with
   unique instance ownership, cancellation, and explicit join-before-return.
+- A 15-joint procedural humanoid with Idle/Walk/Run/Turn/Aim/UpperLayer clips and a
+  15-instruction sample graph containing every P0 node type.
+- Real runtime Trace JSON, a self-contained Canvas debugger, an observed benchmark
+  matrix, and CLI commands for sample/evaluate/benchmark/assets/viewer/verification.
 
 ## License
 
