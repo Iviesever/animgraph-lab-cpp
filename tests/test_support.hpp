@@ -71,8 +71,8 @@ inline int run_all() {
 
 #define AG_CHECK_EQ(actual, expected)                                         \
   do {                                                                        \
-    const auto& ag_actual = (actual);                                         \
-    const auto& ag_expected = (expected);                                     \
+    const auto ag_actual = (actual);                                          \
+    const auto ag_expected = (expected);                                      \
     if (!(ag_actual == ag_expected)) {                                        \
       ::animgraph::test::fail(#actual " == " #expected, __FILE__, __LINE__);  \
     }                                                                         \
