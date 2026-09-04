@@ -70,7 +70,10 @@
 - CI run `33888003456` passed MSVC, Clang, GCC, and Clang ASan+UBSan after an
   assertion lifetime bug was found and fixed. All 20 required docs and 12 drills
   are written and placeholder-free.
+- Clean HEAD `9bb07919` produced Win64 and Source ZIPs, manifest, and SHA-256 files.
+  The Win64 ZIP passed isolated `verify/evaluate/generate-viewer` and the temporary
+  extraction was removed.
 
 ## Next atomic action
 
-Commit documentation, then package exact clean HEAD and verify from extraction.
+Commit package evidence, run two independent audits, then fix confirmed findings.

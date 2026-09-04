@@ -223,7 +223,7 @@ std::vector<EvaluationResult> evaluate_parallel(std::span<EvaluationJob>, std::s
   and source-set drift verification; record missing environments honestly.
 - [x] Write every required document under `docs/`, including 12 concrete live-change
   drills and exact AI authorship; align README claims with executable evidence.
-- [ ] Generate clean-HEAD Win64/source ZIPs, manifest, SHA-256 files; extract into
+- [x] Generate clean-HEAD Win64/source ZIPs, manifest, SHA-256 files; extract into
   `artifacts/verification/extracted-win64`, run `verify`, `evaluate`, and
   `generate-viewer`, then remove only that exact verified extraction directory.
 - [ ] Commit `test: complete verification and delivery artifacts`, push.
