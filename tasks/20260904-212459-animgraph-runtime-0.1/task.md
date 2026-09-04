@@ -69,7 +69,7 @@ and sanitizers where available, PowerShell packaging, embedded HTML/CSS/JavaScri
 - [x] Configure target `animgraph`, `animgraph_lab`, and `animgraph_tests`; enable
   `/W4 /WX /permissive-` or `-Wall -Wextra -Wpedantic -Werror`.
 - [x] Run MQB CLI and explicit test source sets twice, then CMake MSVC Debug + CTest.
-- [ ] Initialize `main`, create the authorized public remote, commit/push the verified
+- [x] Initialize `main`, create the authorized public remote, commit/push the verified
   baseline, fetch, record base SHA, and create `feat/animgraph-runtime-0.1` from it.
 
 ### Task 2: PACT-10 math, skeleton, and pose

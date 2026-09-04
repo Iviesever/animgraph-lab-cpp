@@ -2,11 +2,11 @@
 
 ## Current state
 
-- Active PACT: PACT-00 baseline and product contract; local gates are green and
-  the first remote CI run is pending.
+- Active PACT: PACT-00 baseline and product contract is green; final evidence-only
+  baseline commit and branch creation remain.
 - Target branch: `main` until verified baseline push, then
   `feat/animgraph-runtime-0.1` from fetched `origin/main`.
-- Last-known-good revision: none until the verified baseline commit is pushed.
+- Last-known-good revision: `684d663263bcbae593351fe577f86a4fa542aa73`.
 
 ## Environment observations
 
@@ -31,8 +31,10 @@
 - CI run `33879018719` provided the expected integration RED: VS18 generator
   mismatch on Windows and configure/build preset name mismatch on Linux. The
   minimal repair uses the verified vcvars/Ninja script and aligned preset names.
+- CI run `33879239638` passed Windows/MSVC, Ubuntu/Clang 18.1.3, and Ubuntu/GCC
+  13.3.0, each including CTest 1/1.
 
 ## Next atomic action
 
-Commit and push the verified local baseline to `main`, wait for MSVC/Clang/GCC CI,
-then fetch `origin/main` and create `feat/animgraph-runtime-0.1` at its exact SHA.
+Commit/push this final PACT-00 evidence, wait for its CI, fetch `origin/main`, and
+create `feat/animgraph-runtime-0.1` at that exact SHA.
