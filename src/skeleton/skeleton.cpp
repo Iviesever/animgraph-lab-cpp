@@ -12,27 +12,27 @@ bool valid_transform(const Transform& value) {
          normalize(value.rotation).has_value();
 }
 
-std::expected<void, Error> validate_raw(const RawSkeleton& raw) {
+Expected<void, Error> validate_raw(const RawSkeleton& raw) {
   if (raw.joints.empty() || raw.joints.size() > max_joints) {
-    return std::unexpected(Error{ErrorCode::bounds, "skeleton joint count is outside [1,256]"});
+    return make_unexpected(Error{ErrorCode::bounds, "skeleton joint count is outside [1,256]"});
   }
   std::size_t roots = 0;
   for (std::size_t index = 0; index < raw.joints.size(); ++index) {
     const auto& current = raw.joints[index];
     if (current.name.empty()) {
-      return std::unexpected(Error{ErrorCode::invalid_argument, "joint name is empty"});
+      return make_unexpected(Error{ErrorCode::invalid_argument, "joint name is empty"});
     }
     if (!valid_transform(current.reference_local) || !valid_transform(current.inverse_bind)) {
-      return std::unexpected(Error{ErrorCode::non_finite, "joint transform is invalid"});
+      return make_unexpected(Error{ErrorCode::non_finite, "joint transform is invalid"});
     }
     if (!current.parent) {
       ++roots;
     } else if (*current.parent >= raw.joints.size() || *current.parent == index) {
-      return std::unexpected(Error{ErrorCode::hierarchy, "joint parent is invalid"});
+      return make_unexpected(Error{ErrorCode::hierarchy, "joint parent is invalid"});
     }
   }
   if (roots != 1) {
-    return std::unexpected(Error{ErrorCode::hierarchy, "skeleton must have exactly one root"});
+    return make_unexpected(Error{ErrorCode::hierarchy, "skeleton must have exactly one root"});
   }
 
   for (std::size_t start = 0; start < raw.joints.size(); ++start) {
@@ -40,7 +40,7 @@ std::expected<void, Error> validate_raw(const RawSkeleton& raw) {
     std::optional<std::uint32_t> cursor{static_cast<std::uint32_t>(start)};
     while (cursor) {
       if (visited[*cursor]) {
-        return std::unexpected(Error{ErrorCode::hierarchy, "skeleton contains a cycle"});
+        return make_unexpected(Error{ErrorCode::hierarchy, "skeleton contains a cycle"});
       }
       visited[*cursor] = true;
       cursor = raw.joints[*cursor].parent;
@@ -51,24 +51,24 @@ std::expected<void, Error> validate_raw(const RawSkeleton& raw) {
 
 }  // namespace
 
-std::expected<std::uint32_t, Error> SkeletonBuilder::add_joint(RawJoint joint_value) {
+Expected<std::uint32_t, Error> SkeletonBuilder::add_joint(RawJoint joint_value) {
   if (raw_.joints.size() >= max_joints) {
-    return std::unexpected(Error{ErrorCode::bounds, "skeleton exceeds joint limit"});
+    return make_unexpected(Error{ErrorCode::bounds, "skeleton exceeds joint limit"});
   }
   const auto index = static_cast<std::uint32_t>(raw_.joints.size());
   raw_.joints.push_back(std::move(joint_value));
   return index;
 }
-std::expected<CompiledSkeleton, Error> SkeletonBuilder::build() const {
+Expected<CompiledSkeleton, Error> SkeletonBuilder::build() const {
   return compile_skeleton(raw_);
 }
-std::expected<void, Error> SkeletonValidator::validate(const RawSkeleton& raw) {
+Expected<void, Error> SkeletonValidator::validate(const RawSkeleton& raw) {
   return validate_raw(raw);
 }
 
-std::expected<CompiledSkeleton, Error> compile_skeleton(const RawSkeleton& raw) {
+Expected<CompiledSkeleton, Error> compile_skeleton(const RawSkeleton& raw) {
   const auto validation = validate_raw(raw);
-  if (!validation) return std::unexpected(validation.error());
+  if (!validation) return make_unexpected(validation.error());
 
   CompiledSkeleton compiled;
   compiled.joints.reserve(raw.joints.size());
@@ -98,22 +98,22 @@ std::expected<CompiledSkeleton, Error> compile_skeleton(const RawSkeleton& raw) 
       progressed = true;
     }
     if (!progressed) {
-      return std::unexpected(Error{ErrorCode::hierarchy, "skeleton ordering could not be resolved"});
+      return make_unexpected(Error{ErrorCode::hierarchy, "skeleton ordering could not be resolved"});
     }
   }
   return compiled;
 }
 
-std::expected<ModelPose, Error> local_to_model(const CompiledSkeleton& skeleton,
-                                               const LocalPose& local) {
+Expected<ModelPose, Error> local_to_model(const CompiledSkeleton& skeleton,
+                                          const LocalPose& local) {
   if (local.transforms.size() != skeleton.joints.size()) {
-    return std::unexpected(Error{ErrorCode::size_mismatch, "local pose joint count mismatch"});
+    return make_unexpected(Error{ErrorCode::size_mismatch, "local pose joint count mismatch"});
   }
   ModelPose model;
   model.transforms.resize(skeleton.joints.size());
   for (std::size_t index = 0; index < skeleton.joints.size(); ++index) {
     if (!finite(local.transforms[index])) {
-      return std::unexpected(Error{ErrorCode::non_finite, "local pose contains invalid transform"});
+      return make_unexpected(Error{ErrorCode::non_finite, "local pose contains invalid transform"});
     }
     const auto parent = skeleton.joints[index].parent;
     model.transforms[index] = parent ? compose(model.transforms[parent->value], local.transforms[index])
@@ -122,16 +122,16 @@ std::expected<ModelPose, Error> local_to_model(const CompiledSkeleton& skeleton,
   return model;
 }
 
-std::expected<SkinMatrixPalette, Error> model_to_skin(const CompiledSkeleton& skeleton,
-                                                     const ModelPose& model) {
+Expected<SkinMatrixPalette, Error> model_to_skin(const CompiledSkeleton& skeleton,
+                                                const ModelPose& model) {
   if (model.transforms.size() != skeleton.joints.size()) {
-    return std::unexpected(Error{ErrorCode::size_mismatch, "model pose joint count mismatch"});
+    return make_unexpected(Error{ErrorCode::size_mismatch, "model pose joint count mismatch"});
   }
   SkinMatrixPalette palette;
   palette.matrices.reserve(model.transforms.size());
   for (std::size_t index = 0; index < model.transforms.size(); ++index) {
     if (!finite(model.transforms[index])) {
-      return std::unexpected(Error{ErrorCode::non_finite, "model pose contains invalid transform"});
+      return make_unexpected(Error{ErrorCode::non_finite, "model pose contains invalid transform"});
     }
     palette.matrices.push_back(to_matrix(compose(model.transforms[index],
                                                  skeleton.joints[index].inverse_bind)));

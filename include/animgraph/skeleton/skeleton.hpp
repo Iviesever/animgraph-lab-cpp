@@ -3,7 +3,6 @@
 #include "animgraph/core/types.hpp"
 #include "animgraph/math/math.hpp"
 
-#include <expected>
 #include <optional>
 #include <string>
 #include <vector>
@@ -42,8 +41,8 @@ using Skeleton = CompiledSkeleton;
 
 class SkeletonBuilder {
  public:
-  [[nodiscard]] std::expected<std::uint32_t, Error> add_joint(RawJoint joint);
-  [[nodiscard]] std::expected<CompiledSkeleton, Error> build() const;
+  [[nodiscard]] Expected<std::uint32_t, Error> add_joint(RawJoint joint);
+  [[nodiscard]] Expected<CompiledSkeleton, Error> build() const;
 
  private:
   RawSkeleton raw_;
@@ -51,17 +50,17 @@ class SkeletonBuilder {
 
 class SkeletonValidator {
  public:
-  [[nodiscard]] static std::expected<void, Error> validate(const RawSkeleton& raw);
+  [[nodiscard]] static Expected<void, Error> validate(const RawSkeleton& raw);
 };
 
 struct LocalPose { std::vector<Transform> transforms; };
 struct ModelPose { std::vector<Transform> transforms; };
 struct SkinMatrixPalette { std::vector<Matrix4> matrices; };
 
-[[nodiscard]] std::expected<CompiledSkeleton, Error> compile_skeleton(const RawSkeleton& raw);
-[[nodiscard]] std::expected<ModelPose, Error> local_to_model(const CompiledSkeleton& skeleton,
-                                                              const LocalPose& local);
-[[nodiscard]] std::expected<SkinMatrixPalette, Error> model_to_skin(const CompiledSkeleton& skeleton,
-                                                                    const ModelPose& model);
+[[nodiscard]] Expected<CompiledSkeleton, Error> compile_skeleton(const RawSkeleton& raw);
+[[nodiscard]] Expected<ModelPose, Error> local_to_model(const CompiledSkeleton& skeleton,
+                                                         const LocalPose& local);
+[[nodiscard]] Expected<SkinMatrixPalette, Error> model_to_skin(const CompiledSkeleton& skeleton,
+                                                               const ModelPose& model);
 
 }  // namespace animgraph

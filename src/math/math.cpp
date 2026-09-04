@@ -33,13 +33,13 @@ float length(Vec3 value) noexcept { return std::sqrt(length_squared(value)); }
 bool finite(Vec3 value) noexcept {
   return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
 }
-std::expected<Vec3, Error> normalize(Vec3 value) noexcept {
+Expected<Vec3, Error> normalize(Vec3 value) noexcept {
   const float squared = length_squared(value);
   if (!finite(value) || !std::isfinite(squared)) {
-    return std::unexpected(Error{ErrorCode::non_finite, "vector is not finite"});
+    return make_unexpected(Error{ErrorCode::non_finite, "vector is not finite"});
   }
   if (squared <= epsilon) {
-    return std::unexpected(Error{ErrorCode::zero_length, "vector length is zero"});
+    return make_unexpected(Error{ErrorCode::zero_length, "vector length is zero"});
   }
   return value / std::sqrt(squared);
 }
@@ -51,26 +51,26 @@ bool finite(Quat value) noexcept {
 float dot(Quat a, Quat b) noexcept {
   return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
-std::expected<Quat, Error> normalize(Quat value) noexcept {
+Expected<Quat, Error> normalize(Quat value) noexcept {
   const float squared = dot(value, value);
   if (!finite(value) || !std::isfinite(squared)) {
-    return std::unexpected(Error{ErrorCode::non_finite, "quaternion is not finite"});
+    return make_unexpected(Error{ErrorCode::non_finite, "quaternion is not finite"});
   }
   if (squared <= epsilon) {
-    return std::unexpected(Error{ErrorCode::zero_length, "quaternion length is zero"});
+    return make_unexpected(Error{ErrorCode::zero_length, "quaternion length is zero"});
   }
   const float reciprocal = 1.0F / std::sqrt(squared);
   return Quat{value.x * reciprocal, value.y * reciprocal, value.z * reciprocal,
               value.w * reciprocal};
 }
 Quat conjugate(Quat value) noexcept { return {-value.x, -value.y, -value.z, value.w}; }
-std::expected<Quat, Error> inverse(Quat value) noexcept {
+Expected<Quat, Error> inverse(Quat value) noexcept {
   const float squared = dot(value, value);
   if (!finite(value) || !std::isfinite(squared)) {
-    return std::unexpected(Error{ErrorCode::non_finite, "quaternion is not finite"});
+    return make_unexpected(Error{ErrorCode::non_finite, "quaternion is not finite"});
   }
   if (squared <= epsilon) {
-    return std::unexpected(Error{ErrorCode::zero_length, "quaternion length is zero"});
+    return make_unexpected(Error{ErrorCode::zero_length, "quaternion length is zero"});
   }
   const Quat result = conjugate(value);
   return Quat{result.x / squared, result.y / squared, result.z / squared, result.w / squared};
@@ -112,21 +112,21 @@ Quat slerp(Quat a, Quat b, float t) noexcept {
   return normalized_or_identity({a.x * first + b.x * second, a.y * first + b.y * second,
                                  a.z * first + b.z * second, a.w * first + b.w * second});
 }
-std::expected<Quat, Error> from_axis_angle(Vec3 axis, float radians) noexcept {
+Expected<Quat, Error> from_axis_angle(Vec3 axis, float radians) noexcept {
   if (!std::isfinite(radians)) {
-    return std::unexpected(Error{ErrorCode::non_finite, "angle is not finite"});
+    return make_unexpected(Error{ErrorCode::non_finite, "angle is not finite"});
   }
   const auto unit = normalize(axis);
-  if (!unit) return std::unexpected(unit.error());
+  if (!unit) return make_unexpected(unit.error());
   const float half = radians * 0.5F;
   const float sine = std::sin(half);
   return normalize(Quat{unit->x * sine, unit->y * sine, unit->z * sine, std::cos(half)});
 }
-std::expected<Quat, Error> from_to_rotation(Vec3 from, Vec3 to) noexcept {
+Expected<Quat, Error> from_to_rotation(Vec3 from, Vec3 to) noexcept {
   const auto a = normalize(from);
   const auto b = normalize(to);
-  if (!a) return std::unexpected(a.error());
-  if (!b) return std::unexpected(b.error());
+  if (!a) return make_unexpected(a.error());
+  if (!b) return make_unexpected(b.error());
   const float cosine = std::clamp(dot(*a, *b), -1.0F, 1.0F);
   if (cosine > 0.999999F) return Quat::identity();
   if (cosine < -0.999999F) {
@@ -154,13 +154,13 @@ Transform compose(const Transform& parent, const Transform& child) noexcept {
           normalized_or_identity(multiply(parent.rotation, child.rotation)),
           hadamard(parent.scale, child.scale)};
 }
-std::expected<Transform, Error> inverse(const Transform& value) noexcept {
+Expected<Transform, Error> inverse(const Transform& value) noexcept {
   if (!finite(value) || std::abs(value.scale.x) <= epsilon ||
       std::abs(value.scale.y) <= epsilon || std::abs(value.scale.z) <= epsilon) {
-    return std::unexpected(Error{ErrorCode::invalid_argument, "transform cannot be inverted"});
+    return make_unexpected(Error{ErrorCode::invalid_argument, "transform cannot be inverted"});
   }
   const auto inverse_rotation = inverse(value.rotation);
-  if (!inverse_rotation) return std::unexpected(inverse_rotation.error());
+  if (!inverse_rotation) return make_unexpected(inverse_rotation.error());
   const Vec3 inverse_scale{1.0F / value.scale.x, 1.0F / value.scale.y, 1.0F / value.scale.z};
   return Transform{hadamard(rotate(*inverse_rotation, -value.translation), inverse_scale),
                    *inverse_rotation, inverse_scale};
