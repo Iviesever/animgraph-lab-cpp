@@ -9,6 +9,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Verify CMake and MQB source ownership
+        shell: pwsh
+        run: ./scripts/check_source_drift.ps1
       - name: Configure, build, and test with MSVC
         shell: pwsh
         run: ./scripts/run_cmake_msvc.ps1 -Configuration Debug
@@ -27,3 +30,17 @@ jobs:
         run: cmake --build --preset ${{ matrix.preset }}
       - name: Test
         run: ctest --preset ${{ matrix.preset }}
+
+  ubuntu-sanitizers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure Clang ASan and UBSan
+        run: cmake --preset ninja-clang-asan
+      - name: Build
+        run: cmake --build --preset ninja-clang-asan
+      - name: Test under sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: ctest --preset ninja-clang-asan

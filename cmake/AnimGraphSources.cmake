@@ -1,3 +1,33 @@
 set(ANIMGRAPH_SOURCES
   src/core/version.cpp
+  src/math/math.cpp
+  src/skeleton/skeleton.cpp
+  src/clip/clip.cpp
+  src/asset/codec.cpp
+  src/asset/tool.cpp
+  src/compression/compression.cpp
+  src/graph/graph.cpp
+  src/runtime/runtime.cpp
+  src/runtime/blend.cpp
+  src/runtime/state_machine.cpp
+  src/runtime/root_motion.cpp
+  src/ik/two_bone_ik.cpp
+  src/runtime/batch.cpp
+  src/samples/procedural.cpp
+  src/trace/trace.cpp
+  src/app/lab.cpp
+)
+
+set(ANIMGRAPH_TEST_SOURCES
+  tests/test_main.cpp
+  tests/version_tests.cpp
+  tests/math_skeleton_tests.cpp
+  tests/clip_asset_tests.cpp
+  tests/asset_tool_tests.cpp
+  tests/compression_tests.cpp
+  tests/graph_runtime_tests.cpp
+  tests/blend_state_root_tests.cpp
+  tests/ik_batch_tests.cpp
+  tests/trace_cli_tests.cpp
+  tests/audit_regression_tests.cpp
 )

@@ -2,9 +2,10 @@
 /build/
 /out/
 /artifacts/generated/
-/artifacts/release/*.zip
-/artifacts/release/*.exe
-/artifacts/release/*.pdb
+/artifacts/tests/
+/artifacts/package-staging/
+/artifacts/verification/
+/artifacts/release/
 /.worktrees/
 *.user
 *.suo

@@ -1,34 +1,12 @@
-#include "animgraph/core/version.hpp"
+#include "animgraph/app/lab.hpp"
 
 #include <iostream>
 #include <string_view>
-
-namespace {
-
-void print_usage() {
-  std::cout << "Usage: animgraph_lab <command>\n"
-               "Commands: --version, verify\n";
-}
-
-}  // namespace
+#include <vector>
 
 int main(int argc, char** argv) {
-  if (argc != 2) {
-    print_usage();
-    return 2;
-  }
-
-  const std::string_view command{argv[1]};
-  if (command == "--version") {
-    std::cout << animgraph::version_string() << '\n';
-    return 0;
-  }
-  if (command == "verify") {
-    std::cout << "AnimGraphLab baseline verification: ok\n";
-    return 0;
-  }
-
-  std::cerr << "Unknown command: " << command << '\n';
-  print_usage();
-  return 2;
+  std::vector<std::string_view> arguments;
+  arguments.reserve(argc > 0 ? static_cast<std::size_t>(argc - 1) : 0);
+  for (int index = 1; index < argc; ++index) arguments.emplace_back(argv[index]);
+  return animgraph::run_lab(arguments, std::cout, std::cerr);
 }

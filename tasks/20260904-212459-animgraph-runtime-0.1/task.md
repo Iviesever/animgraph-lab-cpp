@@ -87,14 +87,14 @@ std::expected<ModelPose, Error> local_to_model(const CompiledSkeleton&, const Lo
 std::expected<SkinMatrixPalette, Error> model_to_skin(const CompiledSkeleton&, const ModelPose&);
 ```
 
-- [ ] Add focused failing tests for normalization, q/-q shortest paths, exact
+- [x] Add focused failing tests for normalization, q/-q shortest paths, exact
   interpolation endpoints, 180 degrees, zero/NaN/Inf, compose/inverse, skeleton
   cycles/roots/unsorted remap, pose oracles, and 1/2/64/256-joint bounds.
-- [ ] Run only the new suite and save the expected missing-interface RED output.
-- [ ] Implement finite math with guarded normalization and SkeletonBuilder validation,
+- [x] Run only the new suite and save the expected missing-interface RED output.
+- [x] Implement finite math with guarded normalization and SkeletonBuilder validation,
   stable parent-before-child remapping, local/model transforms, and skin matrices.
-- [ ] Run the focused suite, all tests, MQB Debug twice, and CMake MSVC Debug.
-- [ ] Update evidence/progress/handoff, commit `feat: add animation math and poses`, push.
+- [x] Run the focused suite, all tests, MQB Debug twice, and CMake MSVC Debug.
+- [x] Update evidence/progress/handoff, commit `feat: add animation math and poses`, push.
 
 ### Task 3: PACT-20 clip sampling, events, markers, and asset version 1
 
@@ -111,15 +111,15 @@ std::expected<std::vector<std::byte>, Error> encode_clip(const AnimationClip&);
 std::expected<AnimationClip, Error> decode_clip(std::span<const std::byte>);
 ```
 
-- [ ] Add failing tests for clamp/loop/ping-pong, zero/end/negative/large time,
+- [x] Add failing tests for clamp/loop/ping-pong, zero/end/negative/large time,
   one/missing keys, seam events without duplicates, marker ordering, byte-stable
   round trips, bad magic/version/endian/CRC/offset/count/float/truncation.
-- [ ] Run the focused suite and save the missing-interface RED output.
-- [ ] Implement sorted tracks, reference-pose fill, shortest-path rotation sampling,
+- [x] Run the focused suite and save the missing-interface RED output.
+- [x] Implement sorted tracks, reference-pose fill, shortest-path rotation sampling,
   half-open event intervals, marker policy, explicit little-endian fields and CRC32.
-- [ ] Add `compile-asset`, `inspect-asset`, and `validate` CLI plumbing through codec APIs.
-- [ ] Run focused/all/MQB/MSVC tests and an initial 10,000-byte malformed corpus.
-- [ ] Update records, commit `feat: add clips events and versioned assets`, push.
+- [x] Add `animc compile`, `inspect`, and `validate` plumbing through codec APIs.
+- [x] Run focused/all/MQB/MSVC tests and an initial 10,000-input malformed corpus.
+- [x] Update records, commit `feat: add clips events and versioned assets`, push.
 
 ### Task 4: PACT-30 deterministic compression
 
@@ -131,12 +131,12 @@ struct CompressionReport { std::size_t raw_keys, compressed_keys, raw_bytes, com
 std::expected<CompressedClip, Error> compress_clip(const AnimationClip&, CompressionSettings, CompressionReport&);
 ```
 
-- [ ] Add failing raw-versus-compressed grid/random-time oracle tests for static,
+- [x] Add failing raw-versus-compressed grid/random-time oracle tests for static,
   walk, rapid rotation, tiny motion, long, and nonuniform clips.
-- [ ] Witness RED, then implement deterministic constant detection and linear key
+- [x] Witness RED, then implement deterministic constant detection and linear key
   removal using positional, quaternion-angle, and scale error metrics.
-- [ ] Verify every sampled error is within settings and output stable report bytes.
-- [ ] Run all regression/toolchain checks, save report, update records, commit
+- [x] Verify every sampled error is within settings and output stable report bytes.
+- [x] Run all regression/toolchain checks, save report, update records, commit
   `feat: add deterministic clip compression`, push.
 
 ### Task 5: PACT-40 compiled graph and evaluator
@@ -151,13 +151,13 @@ std::uint64_t plan_identity(const CompiledGraph&);
 std::expected<EvaluationResult, Error> evaluate(const EvaluationContext&, const CompiledGraph&, GraphInstance&);
 ```
 
-- [ ] Add failing tests for typed pins, duplicates, missing inputs, cycles, stable topo,
+- [x] Add failing tests for typed pins, duplicates, missing inputs, cycles, stable topo,
   dead nodes, constant values, state layout, last-use slots, reuse-disabled oracle,
   stable JSON/identity, cache hits/invalidation/isolation, and schedule-only execution.
-- [ ] Witness RED, implement builder validation and stable ID topological compilation.
-- [ ] Implement liveness slot allocation, canonical JSON, FNV-1a identity, debug slot
+- [x] Witness RED, implement builder validation and stable ID topological compilation.
+- [x] Implement liveness slot allocation, canonical JSON, FNV-1a identity, debug slot
   guards, parameter/state layout, and per-instance evaluation.
-- [ ] Run all checks, repeat plan identity, update records, commit
+- [x] Run all checks, repeat plan identity, update records, commit
   `feat: compile and evaluate animation graphs`, push.
 
 ### Task 6: PACT-50 blend trees, layers, state machine, and root motion
@@ -166,13 +166,13 @@ std::expected<EvaluationResult, Error> evaluate(const EvaluationContext&, const 
 validated `Blend1DSample`, `Blend2DSample`, `LayerMask`, `StateMachineDefinition`,
 `TransitionDefinition`, and `RootMotionDelta` value data executed by compiled nodes.
 
-- [ ] Add failing tests for sorted/clamped/exact/duplicate Blend1D, triangle weights and
+- [x] Add failing tests for sorted/clamped/exact/duplicate Blend1D, triangle weights and
   degenerate Blend2D, local additive rotations, hierarchy masks, transition priority,
   zero duration/interruption/exit time/marker sync, state events, and root seams/crossfades.
-- [ ] Witness RED and implement only the tested blend/state/root contracts.
-- [ ] Document crossfade event ownership and root-motion remove/retain policy in code
+- [x] Witness RED and implement only the tested blend/state/root contracts.
+- [x] Document crossfade event ownership and root-motion remove/retain policy in code
   contracts and trace fields.
-- [ ] Run all checks and stable event-order repetitions, update records, commit
+- [x] Run all checks and stable event-order repetitions, update records, commit
   `feat: add blend state and root motion runtime`, push.
 
 ### Task 7: PACT-60 two-bone IK and character batches
@@ -185,13 +185,13 @@ std::vector<EvaluationResult> evaluate_serial(std::span<EvaluationJob>);
 std::vector<EvaluationResult> evaluate_parallel(std::span<EvaluationJob>, std::size_t workers, std::stop_token={});
 ```
 
-- [ ] Add failing tests for reachable/extended/too-close/degenerate/pole/weight cases,
+- [x] Add failing tests for reachable/extended/too-close/degenerate/pole/weight cases,
   finite output, bone lengths, chain isolation, cancellation, join behavior, stable
   CharacterId order, event order, and serial/parallel tolerance equivalence.
-- [ ] Witness RED, implement analytic IK with stable fallback and optional angle clamp.
-- [ ] Implement fixed bounded `std::jthread` character workers with disjoint instance
+- [x] Witness RED, implement analytic IK with stable fallback and optional angle clamp.
+- [x] Implement fixed bounded `std::jthread` character workers with disjoint instance
   and scratch ownership; never detach.
-- [ ] Run all checks repeatedly at worker counts 1/2/4, update records, commit
+- [x] Run all checks repeatedly at worker counts 1/2/4, update records, commit
   `feat: add two bone IK and batch evaluation`, push.
 
 ### Task 8: PACT-70 sample, trace, CLI, viewer, and benchmark
@@ -199,40 +199,40 @@ std::vector<EvaluationResult> evaluate_parallel(std::span<EvaluationJob>, std::s
 **Interfaces produced:** `make_procedural_humanoid()`, `make_locomotion_demo()`,
 `TraceDocument`, `write_trace_json`, and `generate_viewer_html` plus all CLI verbs.
 
-- [ ] Add failing integration tests invoking sample/evaluate/benchmark/compile/inspect/
+- [x] Add failing integration tests invoking sample/evaluate/benchmark/compile/inspect/
   generate-viewer/verify APIs and checking required trace fields and embedded assets.
-- [ ] Witness RED; implement procedural Idle/Walk/Run/Turn/Aim/layer/state/root/IK demo.
-- [ ] Serialize real runtime frames with skeleton, poses, graph/state/transition, clip
+- [x] Witness RED; implement procedural Idle/Walk/Run/Turn/Aim/layer/state/root/IK demo.
+- [x] Serialize real runtime frames with skeleton, poses, graph/state/transition, clip
   times, weights, cache, events, markers, root motion, IK/error, compression, timing,
   versions, Git SHA, and success.
-- [ ] Implement an offline viewer with Canvas skeleton, hierarchy, controls, scrub,
+- [x] Implement an offline viewer with Canvas skeleton, hierarchy, controls, scrub,
   spaces, graph/state/blend/root/IK/event/marker/compression views and responsive CSS.
-- [ ] Run required benchmark matrix and store raw JSON plus a machine-qualified report.
+- [x] Run required benchmark matrix and store raw JSON plus a machine-qualified report.
 - [ ] Open generated HTML in a browser, verify console zero errors and interactions,
   compare trace/root/state values, narrow viewport, and capture the committed screenshot.
-- [ ] Update records, commit `feat: add trace viewer and benchmark tooling`, push.
+- [x] Update records, commit `feat: add trace viewer and benchmark tooling`, push.
 
 ### Task 9: Property, fuzz, sanitizer, documentation, and packages
 
-- [ ] Implement deterministic seeds for 10,000 valid and 10,000 invalid bounded
+- [x] Implement deterministic seeds for 10,000 valid and 10,000 invalid bounded
   skeleton/clip/graph cases; assert typed failure, invariants, identities, compression,
   and serial/parallel behavior.
-- [ ] Implement 100,000 bounded codec inputs including recomputed-CRC deep-parser data;
+- [x] Implement 100,000 bounded codec inputs including recomputed-CRC deep-parser data;
   run MSVC Release and an available ASan/UBSan Clang/GCC environment.
-- [ ] Run MQB Debug/Release, CMake MSVC Debug/Release, CTest, available Clang and GCC,
+- [x] Run MQB Debug/Release, CMake MSVC Debug/Release, CTest, available Clang and GCC,
   and source-set drift verification; record missing environments honestly.
-- [ ] Write every required document under `docs/`, including 12 concrete live-change
+- [x] Write every required document under `docs/`, including 12 concrete live-change
   drills and exact AI authorship; align README claims with executable evidence.
-- [ ] Generate clean-HEAD Win64/source ZIPs, manifest, SHA-256 files; extract into
+- [x] Generate clean-HEAD Win64/source ZIPs, manifest, SHA-256 files; extract into
   `artifacts/verification/extracted-win64`, run `verify`, `evaluate`, and
   `generate-viewer`, then remove only that exact verified extraction directory.
-- [ ] Commit `test: complete verification and delivery artifacts`, push.
+- [x] Commit `test: complete verification and delivery artifacts`, push.
 
 ### Task 10: Independent audit and Draft PR
 
-- [ ] Dispatch at most two read-only reviewers with non-overlapping scopes: math/graph/
+- [x] Dispatch at most two read-only reviewers with non-overlapping scopes: math/graph/
   compression and tests/viewer/performance/packaging. Reviewers do not edit files.
-- [ ] Classify findings; for every confirmed Blocker/High write and witness a RED test,
+- [x] Classify findings; for every confirmed Blocker/High write and witness a RED test,
   apply the minimal fix, and rerun the affected plus full gates. Add only directly
   related low-risk Medium fixes.
 - [ ] Rebuild artifacts after fixes so binary/source ZIP, manifests, reports, trace,

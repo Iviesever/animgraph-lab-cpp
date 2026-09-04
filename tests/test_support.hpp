@@ -1,6 +1,7 @@
 #pragma once
 
 #include <exception>
+#include <cmath>
 #include <functional>
 #include <iostream>
 #include <sstream>
@@ -71,9 +72,21 @@ inline int run_all() {
 
 #define AG_CHECK_EQ(actual, expected)                                         \
   do {                                                                        \
-    const auto& ag_actual = (actual);                                         \
-    const auto& ag_expected = (expected);                                     \
+    const auto ag_actual = (actual);                                          \
+    const auto ag_expected = (expected);                                      \
     if (!(ag_actual == ag_expected)) {                                        \
       ::animgraph::test::fail(#actual " == " #expected, __FILE__, __LINE__);  \
+    }                                                                         \
+  } while (false)
+
+#define AG_CHECK_NEAR(actual, expected, tolerance)                            \
+  do {                                                                        \
+    const auto ag_actual = (actual);                                          \
+    const auto ag_expected = (expected);                                      \
+    const auto ag_tolerance = (tolerance);                                    \
+    if (!std::isfinite(ag_actual) || !std::isfinite(ag_expected) ||           \
+        !std::isfinite(ag_tolerance) || ag_tolerance < 0 ||                   \
+        std::abs(ag_actual - ag_expected) > ag_tolerance) {                   \
+      ::animgraph::test::fail(#actual " ~= " #expected, __FILE__, __LINE__); \
     }                                                                         \
   } while (false)

@@ -15,7 +15,25 @@
   "discovery": {
     "enabled": true,
     "exclude_dirs": ["tasks", "tests"],
-    "extra_sources": ["src/core/version.cpp"]
+    "extra_sources": [
+      "src/core/version.cpp",
+      "src/math/math.cpp",
+      "src/skeleton/skeleton.cpp",
+      "src/clip/clip.cpp",
+      "src/asset/codec.cpp",
+      "src/asset/tool.cpp",
+      "src/compression/compression.cpp",
+      "src/graph/graph.cpp",
+      "src/runtime/runtime.cpp",
+      "src/runtime/blend.cpp",
+      "src/runtime/state_machine.cpp",
+      "src/runtime/root_motion.cpp",
+      "src/ik/two_bone_ik.cpp",
+      "src/runtime/batch.cpp",
+      "src/samples/procedural.cpp",
+      "src/trace/trace.cpp",
+      "src/app/lab.cpp"
+    ]
   },
   "profiles": {
     "debug": {
