@@ -45,6 +45,8 @@ The runtime feature work is tracked under
 - Byte-stable little-endian `.agskel`/`.agclip` version 1 assets with explicit
   bounds, offsets, string tables, finite-value checks, and CRC32 integrity.
 - `animc compile|inspect|validate` for programmatic sample runtime assets.
+- Deterministic constant-track detection and error-bounded translation, quaternion,
+  and scale key reduction with per-track byte/key/error reports.
 
 ## License
 

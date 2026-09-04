@@ -131,11 +131,11 @@ struct CompressionReport { std::size_t raw_keys, compressed_keys, raw_bytes, com
 std::expected<CompressedClip, Error> compress_clip(const AnimationClip&, CompressionSettings, CompressionReport&);
 ```
 
-- [ ] Add failing raw-versus-compressed grid/random-time oracle tests for static,
+- [x] Add failing raw-versus-compressed grid/random-time oracle tests for static,
   walk, rapid rotation, tiny motion, long, and nonuniform clips.
-- [ ] Witness RED, then implement deterministic constant detection and linear key
+- [x] Witness RED, then implement deterministic constant detection and linear key
   removal using positional, quaternion-angle, and scale error metrics.
-- [ ] Verify every sampled error is within settings and output stable report bytes.
+- [x] Verify every sampled error is within settings and output stable report bytes.
 - [ ] Run all regression/toolchain checks, save report, update records, commit
   `feat: add deterministic clip compression`, push.
 

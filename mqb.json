@@ -21,7 +21,8 @@
       "src/skeleton/skeleton.cpp",
       "src/clip/clip.cpp",
       "src/asset/codec.cpp",
-      "src/asset/tool.cpp"
+      "src/asset/tool.cpp",
+      "src/compression/compression.cpp"
     ]
   },
   "profiles": {
