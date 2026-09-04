@@ -2,7 +2,8 @@
 
 ## Current state
 
-- Active PACT: PACT-60 complete; PACT-70 CLI/trace/viewer/benchmark is next.
+- Active PACT: PACT-70 runtime/CLI/trace/viewer/benchmark code and artifacts are
+  green; interactive browser QA is blocked by the browser URL policy.
 - Target branch: `main` until verified baseline push, then
   `feat/animgraph-runtime-0.1` from fetched `origin/main`.
 - Baseline/base revision: `e1b85fbef4d78720bfb1fe060866c435a5ed48f3`.
@@ -60,7 +61,10 @@
 - PACT-60 witnessed interface, join-race, and compiled-node RED states, then passed
   41/41 tests, 25/25 repeated executions, CMake/MSVC, and 14-source drift checks.
 - PACT-60 CI run `33885468738` passed MSVC, Clang, and GCC.
+- PACT-70 passed 45/45 tests and CI run `33886878359`; exact-SHA Trace, Viewer,
+  and 9-row benchmark artifacts were generated. Browser `file://` loading was
+  policy-blocked and no workaround was attempted.
 
 ## Next atomic action
 
-Write PACT-70 procedural demo, trace, CLI, viewer, and benchmark integration RED tests.
+Commit PACT-70 artifacts, then run full property/fuzz/Release/sanitizer verification.

@@ -199,15 +199,15 @@ std::vector<EvaluationResult> evaluate_parallel(std::span<EvaluationJob>, std::s
 **Interfaces produced:** `make_procedural_humanoid()`, `make_locomotion_demo()`,
 `TraceDocument`, `write_trace_json`, and `generate_viewer_html` plus all CLI verbs.
 
-- [ ] Add failing integration tests invoking sample/evaluate/benchmark/compile/inspect/
+- [x] Add failing integration tests invoking sample/evaluate/benchmark/compile/inspect/
   generate-viewer/verify APIs and checking required trace fields and embedded assets.
-- [ ] Witness RED; implement procedural Idle/Walk/Run/Turn/Aim/layer/state/root/IK demo.
-- [ ] Serialize real runtime frames with skeleton, poses, graph/state/transition, clip
+- [x] Witness RED; implement procedural Idle/Walk/Run/Turn/Aim/layer/state/root/IK demo.
+- [x] Serialize real runtime frames with skeleton, poses, graph/state/transition, clip
   times, weights, cache, events, markers, root motion, IK/error, compression, timing,
   versions, Git SHA, and success.
-- [ ] Implement an offline viewer with Canvas skeleton, hierarchy, controls, scrub,
+- [x] Implement an offline viewer with Canvas skeleton, hierarchy, controls, scrub,
   spaces, graph/state/blend/root/IK/event/marker/compression views and responsive CSS.
-- [ ] Run required benchmark matrix and store raw JSON plus a machine-qualified report.
+- [x] Run required benchmark matrix and store raw JSON plus a machine-qualified report.
 - [ ] Open generated HTML in a browser, verify console zero errors and interactions,
   compare trace/root/state values, narrow viewport, and capture the committed screenshot.
 - [ ] Update records, commit `feat: add trace viewer and benchmark tooling`, push.
