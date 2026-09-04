@@ -2,11 +2,11 @@
 
 ## Current state
 
-- Active PACT: PACT-60 IK/batch; local gates green, CI pending.
+- Active PACT: PACT-60 complete; PACT-70 CLI/trace/viewer/benchmark is next.
 - Target branch: `main` until verified baseline push, then
   `feat/animgraph-runtime-0.1` from fetched `origin/main`.
 - Baseline/base revision: `e1b85fbef4d78720bfb1fe060866c435a5ed48f3`.
-- Last-known-good revision: `f59213a3712479276c122a7a180868e350985f66`.
+- Last-known-good revision: `432f1c6b0a534a4b178f17d45f6647b9ca00ccd1`.
 
 ## Environment observations
 
@@ -59,7 +59,8 @@
 - PACT-50 CI run `33884725185` passed MSVC, Clang, and GCC.
 - PACT-60 witnessed interface, join-race, and compiled-node RED states, then passed
   41/41 tests, 25/25 repeated executions, CMake/MSVC, and 14-source drift checks.
+- PACT-60 CI run `33885468738` passed MSVC, Clang, and GCC.
 
 ## Next atomic action
 
-Commit/push PACT-60, require CI green, then begin procedural demo/trace/viewer PACT-70.
+Write PACT-70 procedural demo, trace, CLI, viewer, and benchmark integration RED tests.

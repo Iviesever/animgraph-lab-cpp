@@ -191,7 +191,7 @@ std::vector<EvaluationResult> evaluate_parallel(std::span<EvaluationJob>, std::s
 - [x] Witness RED, implement analytic IK with stable fallback and optional angle clamp.
 - [x] Implement fixed bounded `std::jthread` character workers with disjoint instance
   and scratch ownership; never detach.
-- [ ] Run all checks repeatedly at worker counts 1/2/4, update records, commit
+- [x] Run all checks repeatedly at worker counts 1/2/4, update records, commit
   `feat: add two bone IK and batch evaluation`, push.
 
 ### Task 8: PACT-70 sample, trace, CLI, viewer, and benchmark
