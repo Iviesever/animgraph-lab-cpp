@@ -154,7 +154,8 @@ void write_config(std::ostream& output, const NodeConfig& config) {
     output << "\"fallback_bits\":"; write_float_bits(output, layer->fallback);
     output << ",\"mask_bits\":[";
     for (std::size_t index = 0; index < layer->joint_weights.size(); ++index) {
-      if (index) output << ','; write_float_bits(output, layer->joint_weights[index]);
+      if (index) output << ',';
+      write_float_bits(output, layer->joint_weights[index]);
     }
     output << ']';
   } else if (const auto* ik = std::get_if<TwoBoneIkNodeConfig>(&config)) {
@@ -163,7 +164,8 @@ void write_config(std::ostream& output, const NodeConfig& config) {
     write_float_bits(output, ik->pole.y); output << ','; write_float_bits(output, ik->pole.z);
     output << "],\"fallback_bits\":[";
     for (std::size_t index = 0; index < ik->fallbacks.size(); ++index) {
-      if (index) output << ','; write_float_bits(output, ik->fallbacks[index]);
+      if (index) output << ',';
+      write_float_bits(output, ik->fallbacks[index]);
     }
     output << "],\"limit\":";
     if (ik->limit) {
