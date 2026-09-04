@@ -5,6 +5,8 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path -LiteralPath (Split-Path -Parent $PSScriptRoot)).Path
 $releaseRoot = Join-Path $projectRoot 'artifacts\release'
 $stagingRoot = Join-Path $projectRoot 'artifacts\package-staging\win64'
+$sourceStagingRoot = Join-Path $projectRoot 'artifacts\package-staging\source'
+$sourceSeedZip = Join-Path $projectRoot 'artifacts\package-staging\source-seed.zip'
 $releaseExe = Join-Path $projectRoot 'build\msvc-ninja-release\animgraph_lab.exe'
 $animcExe = Join-Path $projectRoot 'build\msvc-ninja-release\animc.exe'
 
@@ -19,6 +21,10 @@ $binaryVersion = & $releaseExe --version
 if ($LASTEXITCODE -ne 0 -or $binaryVersion -notmatch 'sha=([0-9a-f]{40})' -or $Matches[1] -ne $sha) {
   throw "Release binary does not bind current clean HEAD. binary='$binaryVersion' head='$sha'"
 }
+$animcVersion = & $animcExe --version
+if ($LASTEXITCODE -ne 0 -or $animcVersion -notmatch 'sha=([0-9a-f]{40})' -or $Matches[1] -ne $sha) {
+  throw "animc binary does not bind current clean HEAD. binary='$animcVersion' head='$sha'"
+}
 
 function Assert-UnderArtifacts([string]$Path) {
   $artifacts = [IO.Path]::GetFullPath((Join-Path $projectRoot 'artifacts'))
@@ -31,10 +37,17 @@ function Assert-UnderArtifacts([string]$Path) {
 
 Assert-UnderArtifacts $releaseRoot
 Assert-UnderArtifacts $stagingRoot
-if (Test-Path -LiteralPath $stagingRoot) {
-  Remove-Item -Recurse -Force -LiteralPath $stagingRoot
+Assert-UnderArtifacts $sourceStagingRoot
+Assert-UnderArtifacts $sourceSeedZip
+foreach ($path in $stagingRoot,$sourceStagingRoot) {
+  if (Test-Path -LiteralPath $path) {
+    Remove-Item -Recurse -Force -LiteralPath $path
+  }
 }
-New-Item -ItemType Directory -Force -Path $releaseRoot,$stagingRoot | Out-Null
+if (Test-Path -LiteralPath $sourceSeedZip) {
+  Remove-Item -Force -LiteralPath $sourceSeedZip
+}
+New-Item -ItemType Directory -Force -Path $releaseRoot,$stagingRoot,$sourceStagingRoot | Out-Null
 
 $shortSha = $sha.Substring(0, 8)
 $winZip = Join-Path $releaseRoot "AnimGraphLab-Win64-0.1.0-$shortSha.zip"
@@ -87,11 +100,53 @@ $packageManifest = [ordered]@{
 $packageManifest | ConvertTo-Json -Depth 8 |
   Set-Content -Encoding utf8NoBOM -LiteralPath (Join-Path $stagingRoot 'MANIFEST.json')
 
+# Build the source delivery from the exact final HEAD, then replace volatile checked-in
+# snapshots with outputs produced by the same SHA-bound binary used for the Win64 package.
+git -C $projectRoot archive --format=zip --output=$sourceSeedZip HEAD
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Expand-Archive -LiteralPath $sourceSeedZip -DestinationPath $sourceStagingRoot
+Remove-Item -Force -LiteralPath $sourceSeedZip
+$sourceGenerated = @(
+  @{ source = (Join-Path $stagingRoot 'samples\trace\locomotion.trace.json'); destination = 'samples\trace\locomotion.trace.json' },
+  @{ source = (Join-Path $stagingRoot 'viewer\animgraph_debugger.html'); destination = 'viewer\animgraph_debugger.html' },
+  @{ source = (Join-Path $stagingRoot 'reports\benchmark.json'); destination = 'artifacts\reports\benchmark.json' }
+)
+foreach ($generated in $sourceGenerated) {
+  $destination = Join-Path $sourceStagingRoot $generated.destination
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+  Copy-Item -Force -LiteralPath $generated.source -Destination $destination
+}
+$revisionRelative = 'cmake\AnimGraphSourceRevision.cmake'
+"set(ANIMGRAPH_SOURCE_ARCHIVE_SHA `"$sha`")" |
+  Set-Content -Encoding ascii -LiteralPath (Join-Path $sourceStagingRoot $revisionRelative)
+$sourceGeneratedPaths = @($sourceGenerated | ForEach-Object { $_.destination }) + $revisionRelative
+$sourceGeneratedFiles = foreach ($generatedPath in $sourceGeneratedPaths) {
+  $item = Get-Item -LiteralPath (Join-Path $sourceStagingRoot $generatedPath)
+  [ordered]@{
+    path = $generatedPath.Replace('\','/')
+    size = $item.Length
+    sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $item.FullName).Hash.ToLowerInvariant()
+  }
+}
+$sourceManifest = [ordered]@{
+  schemaVersion = 1
+  product = 'AnimGraphLab'
+  version = '0.1.0'
+  gitSha = $sha
+  generatedBy = $binaryVersion
+  assetTool = $animcVersion
+  sourceArchive = 'git archive HEAD with SHA-bound generated samples overlaid'
+  generatedFiles = @($sourceGeneratedFiles)
+}
+$sourceManifest | ConvertTo-Json -Depth 8 |
+  Set-Content -Encoding utf8NoBOM -LiteralPath (Join-Path $sourceStagingRoot 'SOURCE_DELIVERY_MANIFEST.json')
+
 if (Test-Path -LiteralPath $winZip) { Remove-Item -Force -LiteralPath $winZip }
 if (Test-Path -LiteralPath $sourceZip) { Remove-Item -Force -LiteralPath $sourceZip }
 Compress-Archive -Path (Join-Path $stagingRoot '*') -DestinationPath $winZip -CompressionLevel Optimal
-git -C $projectRoot archive --format=zip --output=$sourceZip HEAD
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[IO.Compression.ZipFile]::CreateFromDirectory(
+  $sourceStagingRoot, $sourceZip, [IO.Compression.CompressionLevel]::Optimal, $false)
 
 $artifacts = foreach ($path in $winZip,$sourceZip) {
   $item = Get-Item -LiteralPath $path

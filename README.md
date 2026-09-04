@@ -71,30 +71,34 @@ The runtime feature work is tracked under
 
 ```powershell
 # Primary Windows/MSVC developer path
-mqb run --profile release -- verify
+./scripts/run_mqb.ps1 -Target Lab -Configuration Release -ProgramArguments verify
 
 # Portable project path (the script enters the discovered VS developer environment)
 ./scripts/run_cmake_msvc.ps1 -Configuration Release
 
 # Produce an inspectable run
-./.mqb/bin/animgraph_lab.exe evaluate --sample locomotion --trace trace.json --git-sha local
+./.mqb/bin/animgraph_lab.exe evaluate --sample locomotion --trace trace.json
 ./.mqb/bin/animgraph_lab.exe generate-viewer --trace trace.json --out viewer.html
 ```
 
 The CLI commands are `sample`, `evaluate`, `benchmark`, `compile-asset`,
 `inspect-asset`, `generate-viewer`, and `verify`. The separate `animc` tool exposes
-`compile`, `inspect`, and `validate` for versioned runtime assets.
+`compile`, `inspect`, and `validate` for versioned runtime assets. The MQB wrapper
+injects the current 40-character Git SHA into both tools; use it instead of a bare
+`mqb run` when producing evidence or delivery data.
 
 ## Verification
 
-- Unit/integration: 58 named tests.
+- Unit/integration: 67 named tests.
 - Property: 10,000 valid + 10,000 invalid bounded cases and 1,000 serial/parallel jobs.
 - Fuzz: 100,000 bounded inputs across Skeleton, Clip, and Graph formats.
 - Toolchains: MSVC Debug/Release, Ubuntu Clang/GCC, and Clang ASan+UBSan.
 - Evidence and exact commands: `tasks/20260904-212459-animgraph-runtime-0.1/evidence/`.
 
 The sample debugger is `viewer/animgraph_debugger.html` and consumes the committed
-real Trace at `samples/trace/locomotion.trace.json`. Automated browser loading of a
+real Trace snapshot at `samples/trace/locomotion.trace.json`. Final local packages
+regenerate Trace, Viewer, and Benchmark from one SHA-bound binary and overlay those
+outputs into both archives. Automated browser loading of a
 local file was blocked by the harness URL policy, so interactive browser QA and a
 browser screenshot are not claimed; static control/embedding/responsive checks pass.
 

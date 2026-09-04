@@ -31,6 +31,14 @@ struct RuntimeEventOccurrence {
   std::size_t clip_index{};
 };
 
+struct RuntimeSyncMarkerOccurrence {
+  SyncMarker marker;
+  AnimTime absolute_time;
+  std::int64_t cycle{};
+  NodeId source_node;
+  std::size_t clip_index{};
+};
+
 struct BlendObservation {
   NodeId node;
   std::string name;
@@ -63,6 +71,7 @@ struct EvaluationResult {
   float transition_progress{};
   std::vector<BlendObservation> blends;
   std::vector<std::string> sync_markers;
+  std::vector<RuntimeSyncMarkerOccurrence> sync_marker_occurrences;
   bool ik_applied{};
   Vec3 ik_target{};
   Vec3 ik_pole{};
@@ -78,6 +87,7 @@ struct PoseCacheState {
   LocalPose pose;
   Transform root_motion{Transform::identity()};
   std::vector<RuntimeEventOccurrence> events;
+  std::vector<RuntimeSyncMarkerOccurrence> markers;
 };
 
 struct RuntimeStateNode {
@@ -91,10 +101,15 @@ struct GraphInstance {
   std::vector<LocalPose> pose_slots;
   std::vector<Transform> root_motion_slots;
   std::vector<std::vector<RuntimeEventOccurrence>> event_slots;
+  std::vector<std::vector<RuntimeSyncMarkerOccurrence>> marker_slots;
   std::vector<std::uint8_t> initialized;
   std::vector<PoseCacheState> pose_caches;
   std::vector<RuntimeStateNode> state_nodes;
   std::vector<std::optional<StateMachineInstance>> state_machines;
+  std::vector<std::optional<StateMachineUpdate>> state_updates;
+  std::vector<std::optional<AnimTime>> clip_time_overrides;
+  std::vector<std::uint8_t> clip_time_discontinuities;
+  std::vector<std::optional<RuntimeSyncMarkerOccurrence>> state_sync_markers;
   std::vector<std::byte> state;
   Transform root_motion_accumulator{Transform::identity()};
   std::optional<EvaluationResult> memo;

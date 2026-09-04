@@ -35,6 +35,13 @@ AnimationClip event_clip(std::string name, std::string event_name) {
   return clip;
 }
 
+AnimationClip marked_clip(std::string name, std::string event_name,
+                          std::string marker_name) {
+  auto clip = event_clip(std::move(name), std::move(event_name));
+  clip.markers.push_back({AnimTime{5}, std::move(marker_name)});
+  return clip;
+}
+
 CompiledGraph clip_graph(bool cache) {
   GraphBuilder builder;
   const auto player = builder.add_node(NodeType::clip_player, "player");
@@ -270,6 +277,275 @@ ANIMGRAPH_TEST(compiled_layer_mask_and_state_marker_configuration_drive_runtime)
   const auto state_result=evaluate(state_context,graph,instance).value();
   AG_CHECK(std::ranges::find(state_result.sync_markers,std::string{"sync"})!=state_result.sync_markers.end());
   AG_CHECK_EQ(instance.clip_times[1].ticks,0);
+}
+
+ANIMGRAPH_TEST(runtime_occurrences_deduplicate_dag_merges_and_follow_contributing_branches) {
+  const auto skeleton = one_joint();
+  const std::array clips{marked_clip("a", "active", "active_marker"),
+                         marked_clip("b", "inactive", "inactive_marker")};
+
+  GraphBuilder merge_builder;
+  const auto player = merge_builder.add_node(NodeType::clip_player, "player");
+  merge_builder.set_clip(player, 0).value();
+  const auto blend = merge_builder.add_node(NodeType::blend_1d, "merge");
+  merge_builder.connect(PosePin{player,0}, PosePin{blend,0}).value();
+  merge_builder.connect(PosePin{player,0}, PosePin{blend,1}).value();
+  const auto merge_output = merge_builder.add_node(NodeType::output, "output");
+  merge_builder.connect(PosePin{blend,0}, PosePin{merge_output,0}).value();
+  merge_builder.set_output(merge_output);
+  const auto merge_graph = compile_graph(merge_builder.build()).value();
+  auto merge_instance = make_graph_instance(merge_graph, 1).value();
+  const EvaluationContext merge_context{skeleton, std::span{clips}.first(1),
+                                         AnimTime{5}, {}, 1, 1};
+  const auto merged = evaluate(merge_context, merge_graph, merge_instance).value();
+  AG_CHECK_EQ(merged.event_occurrences.size(), 1U);
+  AG_CHECK_EQ(merged.sync_marker_occurrences.size(), 1U);
+
+  GraphBuilder state_builder;
+  const auto active = state_builder.add_node(NodeType::clip_player, "active");
+  const auto inactive = state_builder.add_node(NodeType::clip_player, "inactive");
+  state_builder.set_clip(active, 0).value();
+  state_builder.set_clip(inactive, 1).value();
+  const auto state = state_builder.add_node(NodeType::state_machine, "state");
+  state_builder.connect(PosePin{active,0}, PosePin{state,0}).value();
+  state_builder.connect(PosePin{inactive,0}, PosePin{state,1}).value();
+  const auto output = state_builder.add_node(NodeType::output, "output");
+  state_builder.connect(PosePin{state,0}, PosePin{output,0}).value();
+  state_builder.set_output(output);
+  state_builder.add_parameter(GraphParameter{"weight", 0.0F, false});
+  const auto graph = compile_graph(state_builder.build()).value();
+  auto instance = make_graph_instance(graph, 1).value();
+  const std::array parameters{0.0F};
+  const auto result = evaluate(EvaluationContext{skeleton, clips, AnimTime{5}, parameters, 1, 1},
+                               graph, instance).value();
+  AG_CHECK_EQ(result.events.size(), 1U);
+  AG_CHECK_EQ(result.events[0].name, std::string{"active"});
+  AG_CHECK_EQ(result.sync_marker_occurrences.size(), 1U);
+  AG_CHECK_EQ(result.sync_marker_occurrences[0].marker.name, std::string{"active_marker"});
+  AG_CHECK_EQ(result.sync_marker_occurrences[0].source_node, active);
+}
+
+ANIMGRAPH_TEST(layer_with_zero_effective_mask_does_not_contribute_events_or_markers) {
+  const auto skeleton = one_joint();
+  const std::array clips{marked_clip("base", "base_event", "base_marker"),
+                         marked_clip("layer", "layer_event", "layer_marker")};
+  GraphBuilder builder;
+  const auto base = builder.add_node(NodeType::clip_player, "base");
+  const auto layer = builder.add_node(NodeType::clip_player, "layer");
+  builder.set_clip(base, 0).value(); builder.set_clip(layer, 1).value();
+  const auto layered = builder.add_node(NodeType::layered_blend_per_bone, "layered");
+  builder.configure_layered(layered, {0.0F}, "", 1.0F).value();
+  builder.connect(PosePin{base,0}, PosePin{layered,0}).value();
+  builder.connect(PosePin{layer,0}, PosePin{layered,1}).value();
+  const auto output = builder.add_node(NodeType::output, "output");
+  builder.connect(PosePin{layered,0}, PosePin{output,0}).value(); builder.set_output(output);
+  const auto graph = compile_graph(builder.build()).value();
+  auto instance = make_graph_instance(graph, 1).value();
+  const auto result = evaluate(EvaluationContext{skeleton, clips, AnimTime{5}, {}, 1, 1},
+                               graph, instance).value();
+  AG_CHECK_EQ(result.events.size(), 1U);
+  AG_CHECK_EQ(result.events[0].name, std::string{"base_event"});
+  AG_CHECK_EQ(result.sync_markers.size(), 1U);
+  AG_CHECK_EQ(result.sync_markers[0], std::string{"base_marker"});
+}
+
+ANIMGRAPH_TEST(state_exit_zero_transitions_immediately_and_marker_sync_precedes_sampling) {
+  StateMachineDefinition definition;
+  definition.states={{StateId{0},"A",AnimTime{10}},{StateId{1},"B",AnimTime{10}}};
+  definition.entry=StateId{0};
+  definition.transitions={TransitionDefinition{StateId{0},StateId{1},
+      ParameterCondition{0,CompareOp::greater,0.5F},1,AnimTime{0},0.0F,std::nullopt,false}};
+  auto state_instance=make_state_machine_instance(definition).value();
+  const std::array speed{1.0F};
+  AG_CHECK_EQ(update_state_machine(definition,speed,AnimTime{1},state_instance)->target,StateId{1});
+
+  const auto skeleton=one_joint();
+  auto source=event_clip("source","source_mid");
+  auto target=event_clip("target","target_mid");
+  source.markers={{AnimTime{2},"sync"}}; target.markers={{AnimTime{7},"sync"}};
+  target.tracks[0].translations={{AnimTime{0},Vec3{}},{AnimTime{10},Vec3{10,0,0}}};
+  const std::array clips{source,target};
+  GraphBuilder builder;
+  const auto source_player=builder.add_node(NodeType::clip_player,"source");
+  const auto target_player=builder.add_node(NodeType::clip_player,"target");
+  builder.set_clip(source_player,0).value(); builder.set_clip(target_player,1).value();
+  const auto state=builder.add_node(NodeType::state_machine,"state");
+  StateMachineNodeConfig config;
+  config.definition.states={{StateId{0},"A",AnimTime{10}},{StateId{1},"B",AnimTime{10}}};
+  config.definition.entry=StateId{0};
+  config.definition.transitions={TransitionDefinition{StateId{0},StateId{1},
+      ParameterCondition{0,CompareOp::greater,0.5F},1,AnimTime{0},std::nullopt,std::string{"sync"},false}};
+  config.sync_clip_indices={0U,1U}; builder.configure_state_machine(state,std::move(config)).value();
+  builder.connect(PosePin{source_player,0},PosePin{state,0}).value();
+  builder.connect(PosePin{target_player,0},PosePin{state,1}).value();
+  const auto output=builder.add_node(NodeType::output,"output");
+  builder.connect(PosePin{state,0},PosePin{output,0}).value(); builder.set_output(output);
+  builder.add_parameter(GraphParameter{"speed",0,false});
+  const auto graph=compile_graph(builder.build()).value(); auto instance=make_graph_instance(graph,1).value();
+  const auto result=evaluate(EvaluationContext{skeleton,clips,AnimTime{5},speed,1,1},graph,instance).value();
+  AG_CHECK_EQ(instance.clip_times[1],AnimTime{0});
+  AG_CHECK_NEAR(result.pose.transforms[0].translation.x,0.0F,1.0e-6F);
+  AG_CHECK(std::ranges::none_of(result.events,[](const AnimationEvent& event){return event.name=="target_mid";}));
+
+  auto delayed_instance=make_graph_instance(graph,1).value();
+  const std::array stopped{0.0F};
+  AG_CHECK(evaluate(EvaluationContext{skeleton,clips,AnimTime{5},stopped,1,1},graph,delayed_instance));
+  AG_CHECK(evaluate(EvaluationContext{skeleton,clips,AnimTime{5},stopped,2,1},graph,delayed_instance));
+  const auto delayed=evaluate(EvaluationContext{skeleton,clips,AnimTime{5},speed,3,1},graph,delayed_instance);
+  AG_CHECK(delayed.has_value());
+  if (delayed_instance.clip_times[1] != AnimTime{10}) {
+    animgraph::test::fail("delayed target clock == 10", __FILE__, __LINE__,
+                         std::to_string(delayed_instance.clip_times[1].ticks));
+  }
+  AG_CHECK_NEAR(delayed->pose.transforms[0].translation.x,0.0F,1.0e-6F);
+  AG_CHECK(std::ranges::none_of(delayed->events,[](const AnimationEvent& event){return event.name=="target_mid";}));
+}
+
+ANIMGRAPH_TEST(state_sync_uses_the_exact_selected_transition_identity) {
+  const auto skeleton=one_joint();
+  auto source=event_clip("source","source_event");
+  auto target=event_clip("target","target_event");
+  source.markers={{AnimTime{1},"high"},{AnimTime{2},"low"}};
+  target.markers={{AnimTime{7},"low"},{AnimTime{9},"high"}};
+  const std::array clips{source,target};
+  GraphBuilder builder;
+  const auto a=builder.add_node(NodeType::clip_player,"a");
+  const auto b=builder.add_node(NodeType::clip_player,"b");
+  builder.set_clip(a,0).value(); builder.set_clip(b,1).value();
+  const auto state=builder.add_node(NodeType::state_machine,"state");
+  StateMachineNodeConfig config;
+  config.definition.states={{StateId{0},"A",AnimTime{10}},{StateId{1},"B",AnimTime{10}}};
+  config.definition.entry=StateId{0};
+  config.definition.transitions={
+      TransitionDefinition{StateId{0},StateId{1},ParameterCondition{0,CompareOp::greater,0.5F},
+                           1,AnimTime{0},std::nullopt,std::string{"low"},false},
+      TransitionDefinition{StateId{0},StateId{1},ParameterCondition{0,CompareOp::greater,0.5F},
+                           2,AnimTime{0},std::nullopt,std::string{"high"},false}};
+  config.sync_clip_indices={0U,1U}; builder.configure_state_machine(state,std::move(config)).value();
+  builder.connect(PosePin{a,0},PosePin{state,0}).value(); builder.connect(PosePin{b,0},PosePin{state,1}).value();
+  const auto output=builder.add_node(NodeType::output,"output");
+  builder.connect(PosePin{state,0},PosePin{output,0}).value(); builder.set_output(output);
+  builder.add_parameter(GraphParameter{"speed",0,false});
+  const auto graph=compile_graph(builder.build()).value(); auto instance=make_graph_instance(graph,1).value();
+  const std::array speed{1.0F};
+  const auto result=evaluate(EvaluationContext{skeleton,clips,AnimTime{5},speed,1,1},graph,instance);
+  AG_CHECK(result.has_value());
+  AG_CHECK_EQ(instance.clip_times[1],AnimTime{3});
+  AG_CHECK(std::ranges::find(result->sync_markers,std::string{"high"})!=result->sync_markers.end());
+  AG_CHECK(std::ranges::find(result->sync_markers,std::string{"low"})==result->sync_markers.end());
+}
+
+ANIMGRAPH_TEST(graph_compiler_rejects_duplicate_value_bindings_and_invalid_geometry_or_limits) {
+  GraphBuilder duplicate;
+  const auto a=duplicate.add_node(NodeType::reference_pose,"a");
+  const auto b=duplicate.add_node(NodeType::reference_pose,"b");
+  const auto blend=duplicate.add_node(NodeType::blend_1d,"blend");
+  duplicate.connect(PosePin{a,0},PosePin{blend,0}).value();
+  duplicate.connect(PosePin{b,0},PosePin{blend,1}).value();
+  AG_CHECK(duplicate.connect(ValuePin{std::string{"first"}},ValuePin{blend,0}).has_value());
+  AG_CHECK(!duplicate.connect(ValuePin{std::string{"second"}},ValuePin{blend,0}));
+
+  GraphBuilder degenerate;
+  const auto p0=degenerate.add_node(NodeType::reference_pose,"p0");
+  const auto p1=degenerate.add_node(NodeType::reference_pose,"p1");
+  const auto p2=degenerate.add_node(NodeType::reference_pose,"p2");
+  const auto b2=degenerate.add_node(NodeType::blend_2d,"b2");
+  degenerate.configure_blend_2d(b2,{GraphPoint2{0,0},GraphPoint2{1,1},GraphPoint2{2,2}},{}).value();
+  degenerate.connect(PosePin{p0,0},PosePin{b2,0}).value();
+  degenerate.connect(PosePin{p1,0},PosePin{b2,1}).value();
+  degenerate.connect(PosePin{p2,0},PosePin{b2,2}).value();
+  const auto out=degenerate.add_node(NodeType::output,"out");
+  degenerate.connect(PosePin{b2,0},PosePin{out,0}).value(); degenerate.set_output(out);
+  AG_CHECK(!compile_graph(degenerate.build()));
+
+  GraphBuilder invalid_ik;
+  const auto input=invalid_ik.add_node(NodeType::reference_pose,"input");
+  const auto ik=invalid_ik.add_node(NodeType::two_bone_ik,"ik");
+  TwoBoneIkNodeConfig ik_config;
+  ik_config.limit=JointLimit{2.0F,1.0F};
+  invalid_ik.configure_two_bone_ik(ik,std::move(ik_config)).value();
+  invalid_ik.connect(PosePin{input,0},PosePin{ik,0}).value();
+  const auto ik_out=invalid_ik.add_node(NodeType::output,"out");
+  invalid_ik.connect(PosePin{ik,0},PosePin{ik_out,0}).value(); invalid_ik.set_output(ik_out);
+  AG_CHECK(!compile_graph(invalid_ik.build()));
+}
+
+ANIMGRAPH_TEST(evaluator_rejects_type_specific_instruction_arity_corruption) {
+  const auto skeleton=one_joint();
+  const std::array clips{event_clip("a","event")};
+  GraphBuilder builder;
+  const auto a=builder.add_node(NodeType::clip_player,"a");
+  builder.set_clip(a,0).value();
+  const auto blend=builder.add_node(NodeType::blend_1d,"blend");
+  builder.connect(PosePin{a,0},PosePin{blend,0}).value();
+  builder.connect(PosePin{a,0},PosePin{blend,1}).value();
+  const auto output=builder.add_node(NodeType::output,"output");
+  builder.connect(PosePin{blend,0},PosePin{output,0}).value(); builder.set_output(output);
+  auto graph=compile_graph(builder.build()).value();
+  auto instance=make_graph_instance(graph,1).value();
+  graph.instructions[1].inputs.clear();
+  const auto validated=validate_instance_layout(graph,instance,1);
+  AG_CHECK(!validated);
+  AG_CHECK_EQ(validated.error().code,ErrorCode::graph);
+}
+
+ANIMGRAPH_TEST(graph_asset_rejects_schema_spoof_even_with_valid_crc) {
+  const std::string spoof=R"({"version":0,"instructions":[],"junk":{"type":"bogus"}})";
+  GraphBuilder builder;
+  const auto reference=builder.add_node(NodeType::reference_pose,"reference");
+  const auto output=builder.add_node(NodeType::output,"output");
+  builder.connect(PosePin{reference,0},PosePin{output,0}).value(); builder.set_output(output);
+  auto bytes=encode_graph_plan(compile_graph(builder.build()).value()).value();
+  bytes.resize(36);
+  for (const char value : spoof) bytes.push_back(static_cast<std::byte>(value));
+  patch_u32(bytes,16,static_cast<std::uint32_t>(bytes.size()));
+  patch_u32(bytes,24,static_cast<std::uint32_t>(spoof.size()));
+  patch_u32(bytes,28,1U); patch_u32(bytes,32,0U); patch_u32(bytes,32,crc32(bytes,32));
+  const auto decoded=decode_graph_plan(bytes);
+  AG_CHECK(!decoded);
+  AG_CHECK_EQ(decoded.error().code,ErrorCode::invalid_format);
+}
+
+ANIMGRAPH_TEST(graph_asset_round_trips_negative_state_transition_priority) {
+  GraphBuilder builder;
+  const auto a=builder.add_node(NodeType::reference_pose,"a");
+  const auto b=builder.add_node(NodeType::reference_pose,"b");
+  const auto state=builder.add_node(NodeType::state_machine,"state");
+  StateMachineNodeConfig config;
+  config.definition.states={{StateId{0},"A",AnimTime{10}},{StateId{1},"B",AnimTime{10}}};
+  config.definition.entry=StateId{0};
+  config.definition.transitions={TransitionDefinition{StateId{0},StateId{1},
+      ParameterCondition{0,CompareOp::greater,0.5F},-1,AnimTime{0},std::nullopt,std::nullopt,false}};
+  builder.configure_state_machine(state,std::move(config)).value();
+  builder.connect(PosePin{a,0},PosePin{state,0}).value(); builder.connect(PosePin{b,0},PosePin{state,1}).value();
+  const auto output=builder.add_node(NodeType::output,"output");
+  builder.connect(PosePin{state,0},PosePin{output,0}).value(); builder.set_output(output);
+  builder.add_parameter(GraphParameter{"speed",0,false});
+  const auto encoded=encode_graph_plan(compile_graph(builder.build()).value()).value();
+  const auto decoded=decode_graph_plan(encoded);
+  AG_CHECK(decoded.has_value());
+}
+
+ANIMGRAPH_TEST(rotation_compression_never_accepts_an_unsampled_error_peak) {
+  AnimationClip clip; clip.name="audit_peak"; clip.duration=AnimTime{6400}; clip.mode=ClipPlaybackMode::clamp;
+  JointTrack track; track.joint=JointId{0};
+  track.rotations={
+      {AnimTime{0},normalize(Quat{-0.02771932F,0.57150980F,-0.52126180F,-0.63316216F}).value()},
+      {AnimTime{3200},normalize(Quat{-0.56156297F,0.37527490F,0.43676058F,0.59418511F}).value()},
+      {AnimTime{6400},normalize(Quat{0.46086126F,0.18599296F,0.82562565F,-0.26712508F}).value()}};
+  clip.tracks.push_back(track);
+  CompressionReport report;
+  const CompressionSettings settings{0.0F,3.08F,0.0F};
+  const auto compressed=compress_clip(clip,settings,report).value();
+  const auto skeleton=one_joint();
+  float maximum=0.0F;
+  for (std::int64_t tick=0;tick<=6400;++tick) {
+    const auto raw=sample_clip(skeleton,clip,AnimTime{tick})->pose.transforms[0].rotation;
+    const auto reduced=sample_clip(skeleton,compressed.clip,AnimTime{tick})->pose.transforms[0].rotation;
+    maximum=std::max(maximum,angular_distance(raw,reduced));
+  }
+  AG_CHECK(maximum<=settings.rotation_radians_error+1.0e-4F);
+  AG_CHECK(report.max_rotation_error+1.0e-4F>=maximum);
 }
 
 }  // namespace

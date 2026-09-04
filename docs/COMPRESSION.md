@@ -9,9 +9,12 @@ Translation/scale errors are Euclidean distances; rotation error is quaternion
 angular distance. Reports contain raw/compressed keys and estimated bytes plus the
 three maxima per joint and globally. Raw and reduced clips are compared on uniform
 and deterministic random times for static, walk, rapid rotation, tiny motion, long,
-and nonuniform clips. Rotation candidates additionally sample 32 interior points per
-original segment; if the continuous-path approximation exceeds tolerance, the
-original rotation keys are retained and the dense maximum is reported.
+and nonuniform clips. Rotation candidates are certified at every representable
+integer animation tick for spans up to 100,000 ticks, which exactly matches the
+runtime's discrete `AnimTime` domain. If the span exceeds that bounded offline proof
+budget or any tick exceeds tolerance, the original rotation keys are retained. The
+reported maximum is therefore exhaustive for a reduced path, or zero for an
+unchanged path.
 
 This is explainable key reduction, not globally optimal compression. No entropy
 coding, SIMD, or 16-bit quantization is claimed. The committed report shows static

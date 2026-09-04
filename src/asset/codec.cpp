@@ -6,6 +6,8 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <optional>
+#include <set>
 #include <string_view>
 #include <utility>
 
@@ -193,126 +195,444 @@ bool magic_equals(std::span<const std::byte> bytes, const std::array<char, 8>& m
   return true;
 }
 
-class JsonSyntaxValidator {
+class CanonicalGraphPlanValidator {
  public:
-  explicit JsonSyntaxValidator(std::string_view text) : text_(text) {}
+  CanonicalGraphPlanValidator(std::string_view text, std::uint32_t node_count)
+      : text_(text), node_count_(node_count) {}
+
   bool valid() {
-    skip_space();
-    if (!value()) return false;
-    skip_space();
-    return cursor_ == text_.size();
+    std::uint64_t version = 0;
+    std::uint64_t pose_slots = 0;
+    std::uint64_t state_size = 0;
+    if (!take("{\"version\":") || !unsigned_value(version) || version != 1 ||
+        !take(",\"pose_slots\":") || !unsigned_value(pose_slots) || pose_slots == 0 ||
+        pose_slots > node_count_ || !take(",\"state_size\":") ||
+        !unsigned_value(state_size) || state_size > max_graph_nodes * 32U ||
+        !take(",\"parameters\":[") || !parameters(false) ||
+        !take(",\"constants\":[") || !parameters(true) ||
+        !take(",\"instructions\":[") ||
+        !instructions(static_cast<std::uint32_t>(pose_slots),
+                      static_cast<std::uint32_t>(state_size)) ||
+        !take("}") || cursor_ != text_.size()) {
+      return false;
+    }
+    for (const auto& binding : sync_bindings_) {
+      if (binding.player >= instruction_summaries_.size()) return false;
+      const auto& player = instruction_summaries_[binding.player];
+      if (player.type != NodeType::clip_player || !player.clip ||
+          *player.clip != binding.clip) return false;
+    }
+    return true;
   }
 
  private:
-  void skip_space() {
-    while (cursor_ < text_.size() && (text_[cursor_] == ' ' || text_[cursor_] == '\n' ||
-           text_[cursor_] == '\r' || text_[cursor_] == '\t')) ++cursor_;
-  }
-  bool consume(char value) {
-    skip_space();
-    if (cursor_ >= text_.size() || text_[cursor_] != value) return false;
-    ++cursor_;
-    return true;
-  }
-  bool literal(std::string_view value) {
+  struct InstructionSummary {
+    NodeType type{};
+    std::optional<std::size_t> clip;
+  };
+  struct SyncBinding {
+    std::size_t player{};
+    std::size_t clip{};
+  };
+
+  bool take(std::string_view value) {
     if (text_.substr(cursor_, value.size()) != value) return false;
     cursor_ += value.size();
     return true;
   }
-  bool string() {
-    if (!consume('"')) return false;
+
+  bool unsigned_value(std::uint64_t& result) {
+    if (cursor_ >= text_.size() || text_[cursor_] < '0' || text_[cursor_] > '9') return false;
+    if (text_[cursor_] == '0' && cursor_ + 1 < text_.size() &&
+        text_[cursor_ + 1] >= '0' && text_[cursor_ + 1] <= '9') return false;
+    result = 0;
+    do {
+      const auto digit = static_cast<std::uint64_t>(text_[cursor_] - '0');
+      if (result > (std::numeric_limits<std::uint64_t>::max() - digit) / 10U) return false;
+      result = result * 10U + digit;
+      ++cursor_;
+    } while (cursor_ < text_.size() && text_[cursor_] >= '0' && text_[cursor_] <= '9');
+    return true;
+  }
+
+  bool signed_value(std::int64_t& result) {
+    const bool negative = cursor_ < text_.size() && text_[cursor_] == '-';
+    if (negative) ++cursor_;
+    std::uint64_t magnitude = 0;
+    if (!unsigned_value(magnitude)) return false;
+    const auto maximum = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    if ((!negative && magnitude > maximum) || (negative && magnitude > maximum + 1U)) return false;
+    if (negative && magnitude == maximum + 1U) result = std::numeric_limits<std::int64_t>::min();
+    else result = negative ? -static_cast<std::int64_t>(magnitude)
+                           : static_cast<std::int64_t>(magnitude);
+    return true;
+  }
+
+  bool string_token(std::string_view& result) {
+    if (!take("\"")) return false;
+    const auto start = cursor_;
     while (cursor_ < text_.size()) {
       const char character = text_[cursor_++];
-      if (character == '"') return true;
+      if (character == '"') {
+        result = text_.substr(start, cursor_ - start - 1U);
+        return true;
+      }
       if (static_cast<unsigned char>(character) < 0x20U) return false;
       if (character == '\\') {
         if (cursor_ >= text_.size()) return false;
         const char escape = text_[cursor_++];
-        if (escape == 'u') {
-          for (int digit = 0; digit < 4; ++digit) {
-            if (cursor_ >= text_.size() || !std::isxdigit(
-                    static_cast<unsigned char>(text_[cursor_++]))) return false;
-          }
-        } else if (std::string_view{"\"\\/bfnrt"}.find(escape) == std::string_view::npos) {
+        if (std::string_view{"\"\\nrt"}.find(escape) == std::string_view::npos) {
           return false;
         }
       }
     }
     return false;
   }
-  bool number() {
-    const std::size_t start = cursor_;
-    if (cursor_ < text_.size() && text_[cursor_] == '-') ++cursor_;
-    if (cursor_ >= text_.size()) return false;
-    if (text_[cursor_] == '0') ++cursor_;
-    else {
-      if (text_[cursor_] < '1' || text_[cursor_] > '9') return false;
-      while (cursor_ < text_.size() && text_[cursor_] >= '0' && text_[cursor_] <= '9') ++cursor_;
-    }
-    if (cursor_ < text_.size() && text_[cursor_] == '.') {
-      ++cursor_;
-      const auto fraction = cursor_;
-      while (cursor_ < text_.size() && text_[cursor_] >= '0' && text_[cursor_] <= '9') ++cursor_;
-      if (fraction == cursor_) return false;
-    }
-    if (cursor_ < text_.size() && (text_[cursor_] == 'e' || text_[cursor_] == 'E')) {
-      ++cursor_;
-      if (cursor_ < text_.size() && (text_[cursor_] == '+' || text_[cursor_] == '-')) ++cursor_;
-      const auto exponent = cursor_;
-      while (cursor_ < text_.size() && text_[cursor_] >= '0' && text_[cursor_] <= '9') ++cursor_;
-      if (exponent == cursor_) return false;
-    }
-    return cursor_ > start;
-  }
-  bool array() {
-    if (!consume('[')) return false;
-    skip_space();
-    if (consume(']')) return true;
-    do {
-      if (!value()) return false;
-      skip_space();
-      if (consume(']')) return true;
-    } while (consume(','));
+
+  bool boolean(bool& result) {
+    if (take("true")) { result = true; return true; }
+    if (take("false")) { result = false; return true; }
     return false;
   }
-  bool object() {
-    if (!consume('{')) return false;
-    skip_space();
-    if (consume('}')) return true;
-    do {
-      if (!string() || !consume(':') || !value()) return false;
-      skip_space();
-      if (consume('}')) return true;
-    } while (consume(','));
-    return false;
+
+  bool u32(std::uint32_t& result) {
+    std::uint64_t value = 0;
+    if (!unsigned_value(value) || value > std::numeric_limits<std::uint32_t>::max()) return false;
+    result = static_cast<std::uint32_t>(value);
+    return true;
   }
-  bool value() {
-    skip_space();
-    if (cursor_ >= text_.size()) return false;
-    switch (text_[cursor_]) {
-      case '{': return object();
-      case '[': return array();
-      case '"': return string();
-      case 't': return literal("true");
-      case 'f': return literal("false");
-      case 'n': return literal("null");
-      default: return number();
+
+  bool finite_bits(float& result) {
+    std::uint32_t bits = 0;
+    if (!u32(bits)) return false;
+    result = std::bit_cast<float>(bits);
+    return std::isfinite(result);
+  }
+
+  bool parameters(bool constants) {
+    std::string_view previous;
+    std::uint32_t expected_offset = 0;
+    std::size_t count = 0;
+    if (take("]")) return true;
+    do {
+      std::string_view name;
+      float value = 0.0F;
+      if (!take("{\"name\":") || !string_token(name) || name.empty()) return false;
+      if (!previous.empty() && previous >= name) return false;
+      previous = name;
+      if (constants) {
+        if (!take(",\"value_bits\":") || !finite_bits(value) || !take("}")) return false;
+      } else {
+        std::uint32_t offset = 0;
+        bool constant = false;
+        if (!take(",\"offset\":") || !u32(offset) || offset != expected_offset ||
+            !take(",\"default_bits\":") || !finite_bits(value) ||
+            !take(",\"constant\":") || !boolean(constant) || constant || !take("}")) return false;
+        expected_offset += static_cast<std::uint32_t>(sizeof(float));
+      }
+      if (++count > max_graph_nodes) return false;
+      if (take("]")) break;
+      if (!take(",")) return false;
+    } while (true);
+    if (!constants) parameter_count_ = count;
+    return true;
+  }
+
+  static std::optional<NodeType> node_type(std::string_view name) {
+    for (const auto type : {NodeType::reference_pose, NodeType::clip_player,
+         NodeType::blend_1d, NodeType::blend_2d, NodeType::additive,
+         NodeType::layered_blend_per_bone, NodeType::pose_cache,
+         NodeType::two_bone_ik, NodeType::state_machine, NodeType::output}) {
+      if (node_type_name(type) == name) return type;
+    }
+    return std::nullopt;
+  }
+
+  static std::size_t input_count(NodeType type) {
+    switch (type) {
+      case NodeType::reference_pose:
+      case NodeType::clip_player: return 0;
+      case NodeType::pose_cache:
+      case NodeType::two_bone_ik:
+      case NodeType::output: return 1;
+      case NodeType::blend_1d:
+      case NodeType::additive:
+      case NodeType::layered_blend_per_bone:
+      case NodeType::state_machine: return 2;
+      case NodeType::blend_2d: return 3;
+    }
+    return max_graph_nodes;
+  }
+
+  static std::size_t parameter_count(NodeType type) {
+    switch (type) {
+      case NodeType::blend_1d:
+      case NodeType::additive:
+      case NodeType::layered_blend_per_bone: return 1;
+      case NodeType::blend_2d: return 2;
+      case NodeType::two_bone_ik: return 4;
+      default: return 0;
     }
   }
+
+  static std::uint32_t state_bytes(NodeType type) {
+    switch (type) {
+      case NodeType::clip_player: return 8;
+      case NodeType::pose_cache: return 24;
+      case NodeType::state_machine: return 32;
+      default: return 0;
+    }
+  }
+
+  bool input_array(std::size_t required, std::uint32_t pose_slots,
+                   const std::vector<bool>& initialized) {
+    std::size_t count = 0;
+    if (take("]")) return required == 0;
+    do {
+      std::uint32_t slot = 0;
+      if (!u32(slot) || slot >= pose_slots || slot >= initialized.size() ||
+          !initialized[slot]) return false;
+      ++count;
+      if (take("]")) break;
+      if (!take(",")) return false;
+    } while (true);
+    return count == required;
+  }
+
+  bool parameter_index_array(std::size_t required) {
+    std::size_t count = 0;
+    if (take("]")) return required == 0;
+    do {
+      std::uint32_t index = 0;
+      if (!u32(index) || (index != std::numeric_limits<std::uint32_t>::max() &&
+                          index >= parameter_count_)) return false;
+      ++count;
+      if (take("]")) break;
+      if (!take(",")) return false;
+    } while (true);
+    return count == required;
+  }
+
+  bool float_array(std::size_t count, std::vector<float>& values) {
+    values.clear();
+    for (std::size_t index = 0; index < count; ++index) {
+      if (index && !take(",")) return false;
+      float value = 0.0F;
+      if (!finite_bits(value)) return false;
+      values.push_back(value);
+    }
+    return true;
+  }
+
+  bool optional_index(std::optional<std::size_t>& value) {
+    if (take("null")) { value.reset(); return true; }
+    std::uint64_t parsed = 0;
+    if (!unsigned_value(parsed) || parsed > std::numeric_limits<std::size_t>::max()) return false;
+    value = static_cast<std::size_t>(parsed);
+    return true;
+  }
+
+  bool config(NodeType type) {
+    if (!take("{\"")) return false;
+    if (type == NodeType::reference_pose || type == NodeType::pose_cache ||
+        type == NodeType::output) {
+      return take("none\":true}");
+    }
+    if (type == NodeType::clip_player) {
+      std::uint32_t root = 0;
+      bool remove = false;
+      return take("root\":") && u32(root) && root < max_joints &&
+             take(",\"remove_root\":") && boolean(remove) && take("}");
+    }
+    if (type == NodeType::blend_1d) {
+      std::vector<float> values;
+      float fallback = 0.0F;
+      return take("threshold_bits\":[") && float_array(2, values) && take("]") &&
+             values[0] < values[1] && take(",\"fallback_bits\":") &&
+             finite_bits(fallback) && take("}");
+    }
+    if (type == NodeType::blend_2d) {
+      std::array<std::array<float, 2>, 3> points{};
+      if (!take("point_bits\":[")) return false;
+      for (std::size_t point = 0; point < points.size(); ++point) {
+        std::vector<float> values;
+        if (point && !take(",")) return false;
+        if (!take("[") || !float_array(2, values) || !take("]")) return false;
+        points[point] = {values[0], values[1]};
+      }
+      std::vector<float> fallbacks;
+      const float determinant = (points[1][0] - points[0][0]) *
+                                    (points[2][1] - points[0][1]) -
+                                (points[2][0] - points[0][0]) *
+                                    (points[1][1] - points[0][1]);
+      return std::isfinite(determinant) && std::abs(determinant) > 1.0e-8F &&
+             take("],\"fallback_bits\":[") && float_array(2, fallbacks) &&
+             take("]}");
+    }
+    if (type == NodeType::additive) {
+      float fallback = 0.0F;
+      return take("fallback_bits\":") && finite_bits(fallback) &&
+             fallback >= 0.0F && fallback <= 1.0F && take("}");
+    }
+    if (type == NodeType::layered_blend_per_bone) {
+      float fallback = 0.0F;
+      if (!take("fallback_bits\":") || !finite_bits(fallback) || fallback < 0.0F ||
+          fallback > 1.0F || !take(",\"mask_bits\":[")) return false;
+      std::size_t count = 0;
+      if (!take("]")) {
+        do {
+          float weight = 0.0F;
+          if (!finite_bits(weight) || weight < 0.0F || weight > 1.0F || ++count > max_joints)
+            return false;
+          if (take("]")) break;
+          if (!take(",")) return false;
+        } while (true);
+      }
+      return take("}");
+    }
+    if (type == NodeType::two_bone_ik) return ik_config();
+    if (type == NodeType::state_machine) return state_config();
+    return false;
+  }
+
+  bool ik_config() {
+    std::array<std::uint32_t, 3> chain{};
+    if (!take("chain\":[")) return false;
+    for (std::size_t index = 0; index < chain.size(); ++index) {
+      if (index && !take(",")) return false;
+      if (!u32(chain[index]) || chain[index] >= max_joints) return false;
+    }
+    if (chain[0] == chain[1] || chain[0] == chain[2] || chain[1] == chain[2]) return false;
+    std::vector<float> pole;
+    std::vector<float> fallbacks;
+    if (!take("],\"pole_bits\":[") || !float_array(3, pole) ||
+        !take("],\"fallback_bits\":[") || !float_array(4, fallbacks) ||
+        fallbacks[3] < 0.0F || fallbacks[3] > 1.0F || !take("],\"limit\":")) return false;
+    if (take("null")) return take("}");
+    std::vector<float> limits;
+    return take("[") && float_array(2, limits) && take("]}") && limits[0] >= 0.0F &&
+           limits[1] <= 3.14159265358979323846F && limits[0] <= limits[1];
+  }
+
+  bool state_config() {
+    std::uint32_t entry = 0;
+    if (!take("entry\":") || !u32(entry) || !take(",\"states\":[")) return false;
+    std::array<std::uint32_t, 2> state_ids{};
+    for (std::size_t index = 0; index < state_ids.size(); ++index) {
+      std::string_view name;
+      std::int64_t duration = 0;
+      if (index && !take(",")) return false;
+      if (!take("{\"id\":") || !u32(state_ids[index]) || !take(",\"name\":") ||
+          !string_token(name) || name.empty() || !take(",\"duration\":") ||
+          !signed_value(duration) || duration < 0 || !take("}")) return false;
+    }
+    if (state_ids[0] == state_ids[1] || (entry != state_ids[0] && entry != state_ids[1]) ||
+        !take("],\"transitions\":[")) return false;
+    std::size_t transition_count = 0;
+    if (!take("]")) {
+      do {
+        std::uint32_t source = 0, target = 0, parameter = 0, operation = 0;
+        std::int64_t priority = 0, blend = 0;
+        float threshold = 0.0F;
+        bool interrupt = false;
+        if (!take("{\"source\":") || !u32(source) || !take(",\"target\":") ||
+            !u32(target) || source == target ||
+            (source != state_ids[0] && source != state_ids[1]) ||
+            (target != state_ids[0] && target != state_ids[1]) ||
+            !take(",\"parameter\":") || !u32(parameter) || parameter >= parameter_count_ ||
+            !take(",\"operation\":") || !u32(operation) || operation > 3 ||
+            !take(",\"threshold_bits\":") || !finite_bits(threshold) ||
+            !take(",\"priority\":") || !signed_value(priority) ||
+            priority < std::numeric_limits<std::int32_t>::min() ||
+            priority > std::numeric_limits<std::int32_t>::max() ||
+            !take(",\"blend\":") || !signed_value(blend) || blend < 0 ||
+            !take(",\"interrupt\":") || !boolean(interrupt) ||
+            !take(",\"exit_bits\":")) return false;
+        if (!take("null")) {
+          float exit = 0.0F;
+          if (!finite_bits(exit) || exit < 0.0F || exit > 1.0F) return false;
+        }
+        if (!take(",\"marker\":")) return false;
+        if (!take("null")) {
+          std::string_view marker;
+          if (!string_token(marker) || marker.empty()) return false;
+        }
+        if (!take("}") || ++transition_count > max_graph_nodes) return false;
+        if (take("]")) break;
+        if (!take(",")) return false;
+      } while (true);
+    }
+    std::array<std::optional<std::size_t>, 2> clips;
+    std::array<std::optional<std::size_t>, 2> players;
+    if (!take(",\"sync_clips\":[")) return false;
+    for (std::size_t index = 0; index < clips.size(); ++index) {
+      if (index && !take(",")) return false;
+      if (!optional_index(clips[index])) return false;
+    }
+    if (!take("],\"sync_players\":[")) return false;
+    for (std::size_t index = 0; index < players.size(); ++index) {
+      if (index && !take(",")) return false;
+      if (!optional_index(players[index])) return false;
+      if (players[index].has_value() != clips[index].has_value()) return false;
+      if (players[index]) sync_bindings_.push_back({*players[index], *clips[index]});
+    }
+    return take("]}");
+  }
+
+  bool instructions(std::uint32_t pose_slots, std::uint32_t state_size) {
+    std::vector<bool> initialized(pose_slots, false);
+    std::set<std::uint32_t> ids;
+    std::uint32_t state_cursor = 0;
+    std::size_t output_count = 0;
+    if (take("]")) return false;
+    do {
+      std::uint32_t id = 0, output = 0, state_offset = 0, parsed_state_size = 0;
+      std::string_view type_name;
+      std::string_view name;
+      if (!take("{\"id\":") || !u32(id) || !ids.insert(id).second ||
+          !take(",\"type\":") || !string_token(type_name)) return false;
+      const auto type = node_type(type_name);
+      if (!type || !take(",\"name\":") || !string_token(name) || name.empty() ||
+          !take(",\"inputs\":[") || !input_array(input_count(*type), pose_slots, initialized) ||
+          !take(",\"output\":") || !u32(output) || output >= pose_slots ||
+          !take(",\"state_offset\":") || !u32(state_offset) ||
+          !take(",\"state_size\":") || !u32(parsed_state_size)) return false;
+      const auto expected_offset = (state_cursor + 7U) & ~7U;
+      if (state_offset != expected_offset || parsed_state_size != state_bytes(*type) ||
+          state_offset > state_size || parsed_state_size > state_size - state_offset) return false;
+      state_cursor = state_offset + parsed_state_size;
+      std::optional<std::size_t> clip;
+      if (*type == NodeType::clip_player) {
+        std::uint64_t parsed_clip = 0;
+        if (!take(",\"clip\":") || !unsigned_value(parsed_clip) ||
+            parsed_clip > std::numeric_limits<std::size_t>::max()) return false;
+        clip = static_cast<std::size_t>(parsed_clip);
+      }
+      if (!take(",\"parameter_indices\":[") ||
+          !parameter_index_array(parameter_count(*type)) ||
+          !take(",\"config\":") || !config(*type) || !take("}")) return false;
+      initialized[output] = true;
+      instruction_summaries_.push_back({*type, clip});
+      if (*type == NodeType::output) ++output_count;
+      if (instruction_summaries_.size() > node_count_) return false;
+      if (take("]")) break;
+      if (!take(",")) return false;
+    } while (true);
+    return instruction_summaries_.size() == node_count_ && output_count == 1 &&
+           instruction_summaries_.back().type == NodeType::output &&
+           ((state_cursor + 7U) & ~7U) == state_size;
+  }
+
   std::string_view text_;
   std::size_t cursor_{};
+  std::uint32_t node_count_{};
+  std::size_t parameter_count_{};
+  std::vector<InstructionSummary> instruction_summaries_;
+  std::vector<SyncBinding> sync_bindings_;
 };
 
 bool valid_graph_plan_json(std::string_view plan, std::uint32_t node_count) {
-  if (!JsonSyntaxValidator{plan}.valid() || !plan.starts_with("{\"version\":") ||
-      plan.find("\"instructions\":[") == std::string_view::npos) return false;
-  std::size_t count = 0;
-  std::size_t cursor = 0;
-  while ((cursor = plan.find("\"type\":\"", cursor)) != std::string_view::npos) {
-    ++count;
-    cursor += 8;
-  }
-  return count == node_count;
+  return CanonicalGraphPlanValidator{plan, node_count}.valid();
 }
 
 Expected<void, Error> basic_size(std::span<const std::byte> bytes, std::size_t header) {

@@ -85,6 +85,7 @@ Expected<StateMachineUpdate, Error> update_state_machine(
         const auto* target_state = find_state(definition, interrupted_by->target);
         StateMachineUpdate update{new_source, interrupted_by->target,
             interrupted_by->blend_duration.ticks == 0 ? 1.0F : 0.0F,
+            static_cast<std::size_t>(interrupted_by - definition.transitions.data()),
             {"exit:" + source_state->name, "enter:" + target_state->name}};
         instance.current = new_source;
         instance.state_time = AnimTime{0};
@@ -103,7 +104,8 @@ Expected<StateMachineUpdate, Error> update_state_machine(
     const float alpha = instance.transition_duration.ticks == 0 ? 1.0F : std::clamp(
         static_cast<float>(instance.transition_time.ticks) /
         static_cast<float>(instance.transition_duration.ticks), 0.0F, 1.0F);
-    const StateMachineUpdate update{instance.current, *instance.target, alpha, {}};
+    const StateMachineUpdate update{instance.current, *instance.target, alpha,
+        static_cast<std::size_t>(active - definition.transitions.begin()), {}};
     if (alpha >= 1.0F) {
       instance.current = *instance.target;
       instance.target.reset();
@@ -127,7 +129,11 @@ Expected<StateMachineUpdate, Error> update_state_machine(
         const auto threshold = static_cast<std::int64_t>(
             std::llround(*transition.exit_time_normalized * static_cast<float>(duration)));
         std::int64_t crossing = (previous_state_time / duration) * duration + threshold;
-        if (crossing <= previous_state_time) crossing += duration;
+        const bool initial_zero_crossing = previous_state_time == 0 && threshold == 0;
+        if (crossing < previous_state_time ||
+            (crossing == previous_state_time && !initial_zero_crossing)) {
+          crossing += duration;
+        }
         if (crossing > instance.state_time.ticks) continue;
       }
     }
@@ -136,10 +142,12 @@ Expected<StateMachineUpdate, Error> update_state_machine(
       selected = &transition;
     }
   }
-  if (!selected) return StateMachineUpdate{instance.current, instance.current, 0.0F, {}};
+  if (!selected) return StateMachineUpdate{instance.current, instance.current, 0.0F,
+                                           std::nullopt, {}};
   const auto* target = find_state(definition, selected->target);
   StateMachineUpdate update{instance.current, selected->target,
                             selected->blend_duration.ticks == 0 ? 1.0F : 0.0F,
+                            static_cast<std::size_t>(selected - definition.transitions.data()),
                             {"exit:" + current->name, "enter:" + target->name}};
   if (selected->blend_duration.ticks == 0) {
     instance.current = selected->target;

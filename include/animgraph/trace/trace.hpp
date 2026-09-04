@@ -29,6 +29,7 @@ struct TraceFrame {
   std::vector<std::string> events;
   std::vector<RuntimeEventOccurrence> event_occurrences;
   std::vector<std::string> sync_markers;
+  std::vector<RuntimeSyncMarkerOccurrence> sync_marker_occurrences;
   Transform root_motion{Transform::identity()};
   Transform root_accumulated{Transform::identity()};
   bool ik_applied{};
@@ -77,6 +78,7 @@ struct BenchmarkReport {
   std::string compiler;
   std::string operating_system;
   std::string cpu;
+  std::string git_sha;
   std::vector<BenchmarkRow> rows;
 };
 

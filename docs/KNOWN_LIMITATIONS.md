@@ -11,6 +11,8 @@
   was installed. Runtime sizes are bounded, but output value copies may reuse or
   acquire vector capacity.
 - FNV-1a Graph identity detects stable-plan changes; it is not cryptographic.
+- Rotation key reduction uses a bounded exhaustive proof over at most 100,000
+  integer ticks per track; longer candidates conservatively retain original keys.
 - Benchmark numbers are local observations and Debug values are not shipping SLAs.
 - Browser security policy blocked local Viewer loading; no interactive console-zero
   or screenshot claim is made despite static HTML/Trace tests.

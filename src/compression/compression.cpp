@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <ranges>
 #include <utility>
 
@@ -87,18 +88,19 @@ Quat sample_reduced(const std::vector<QuatKey>& keys, AnimTime time) {
   return slerp(lower->value, upper->value, alpha);
 }
 
-float rotation_path_error(const std::vector<QuatKey>& original,
-                          const std::vector<QuatKey>& reduced) {
-  if (original.empty() || reduced.empty()) return 0.0F;
+std::optional<float> certified_rotation_path_error(
+    const std::vector<QuatKey>& original,
+    const std::vector<QuatKey>& reduced) {
+  if (original.empty() || reduced.empty() || original == reduced) return 0.0F;
+  constexpr std::int64_t max_certification_ticks = 100'000;
+  const auto first = original.front().time.ticks;
+  const auto last = original.back().time.ticks;
+  if (last < first || last - first > max_certification_ticks) return std::nullopt;
   float maximum = 0.0F;
-  for (std::size_t segment = 1; segment < original.size(); ++segment) {
-    const auto start = original[segment - 1].time.ticks;
-    const auto finish = original[segment].time.ticks;
-    for (std::int64_t step = 0; step <= 32; ++step) {
-      const auto tick = start + ((finish - start) * step) / 32;
-      maximum = std::max(maximum, angular_distance(
-          sample_reduced(original, AnimTime{tick}), sample_reduced(reduced, AnimTime{tick})));
-    }
+  for (std::int64_t tick = first;; ++tick) {
+    maximum = std::max(maximum, angular_distance(
+        sample_reduced(original, AnimTime{tick}), sample_reduced(reduced, AnimTime{tick})));
+    if (tick == last) break;
   }
   return maximum;
 }
@@ -135,9 +137,10 @@ Expected<CompressedClip, Error> compress_clip(const AnimationClip& source,
                                        vec_error, interpolate_vec);
     reduced.rotations = reduce_keys(original.rotations, settings.rotation_radians_error,
                                     quat_error, [](Quat a, Quat b, float t) { return slerp(a, b, t); });
-    if (rotation_path_error(original.rotations, reduced.rotations) >
-        settings.rotation_radians_error) {
+    auto rotation_error = certified_rotation_path_error(original.rotations, reduced.rotations);
+    if (!rotation_error || *rotation_error > settings.rotation_radians_error) {
       reduced.rotations = original.rotations;
+      rotation_error = 0.0F;
     }
     reduced.scales = reduce_keys(original.scales, settings.scale_error, vec_error, interpolate_vec);
 
@@ -153,7 +156,7 @@ Expected<CompressedClip, Error> compress_clip(const AnimationClip& source,
       track_report.max_translation_error = std::max(
           track_report.max_translation_error, vec_error(key.value, sample_reduced(reduced.translations, key.time)));
     }
-    track_report.max_rotation_error = rotation_path_error(original.rotations, reduced.rotations);
+    track_report.max_rotation_error = *rotation_error;
     for (const auto& key : original.scales) {
       track_report.max_scale_error = std::max(
           track_report.max_scale_error, vec_error(key.value, sample_reduced(reduced.scales, key.time)));

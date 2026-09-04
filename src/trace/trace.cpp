@@ -1,5 +1,6 @@
 #include "animgraph/trace/trace.hpp"
 
+#include "animgraph/core/version.hpp"
 #include "animgraph/runtime/batch.hpp"
 
 #include <algorithm>
@@ -294,6 +295,7 @@ Expected<TraceDocument, Error> generate_demo_trace(
     for (const auto& event : evaluated->events) frame.events.push_back(event.name);
     frame.event_occurrences = evaluated->event_occurrences;
     frame.sync_markers = evaluated->sync_markers;
+    frame.sync_marker_occurrences = evaluated->sync_marker_occurrences;
     for (std::size_t index = 0; index < demo.graph.instructions.size(); ++index) {
       const auto& instruction = demo.graph.instructions[index];
       if (instruction.clip_index)
@@ -387,6 +389,16 @@ std::string trace_to_json(const TraceDocument& trace) {
       if (index) output << ',';
       output << '"' << escape_json(frame.sync_markers[index]) << '"';
     }
+    output << "],\"sync_marker_occurrences\":[";
+    for (std::size_t marker = 0; marker < frame.sync_marker_occurrences.size(); ++marker) {
+      if (marker) output << ',';
+      const auto& occurrence = frame.sync_marker_occurrences[marker];
+      output << "{\"name\":\"" << escape_json(occurrence.marker.name)
+             << "\",\"local_tick\":" << occurrence.marker.time.ticks
+             << ",\"absolute_tick\":" << occurrence.absolute_time.ticks
+             << ",\"cycle\":" << occurrence.cycle << ",\"source_node\":"
+             << occurrence.source_node.value << ",\"clip\":" << occurrence.clip_index << '}';
+    }
     output << "],\"event_occurrences\":[";
     for (std::size_t event = 0; event < frame.event_occurrences.size(); ++event) {
       if (event) output << ',';
@@ -443,7 +455,7 @@ function drawSkeleton(){const c=$('skeletonCanvas'),d=fit(c),x=c.getContext('2d'
 function drawRoot(){const c=$('rootCanvas'),d=fit(c),x=c.getContext('2d'),w=c.width/d,h=c.height/d;x.setTransform(d,0,0,d,0,0);x.clearRect(0,0,w,h);x.strokeStyle='#ffcf66';x.lineWidth=2;x.beginPath();frames.slice(0,index+1).map(f=>f.root_accumulated.t).forEach((p,i)=>{const px=20+p[0]*35,py=h/2-p[2]*35;i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke()}
 function drawCompression(){const c=$('compressionCanvas'),d=fit(c),x=c.getContext('2d'),w=c.width/d,h=c.height/d,a=trace.compression||{},raw=Math.max(1,a.raw_bytes||1),reduced=a.compressed_bytes||0;x.setTransform(d,0,0,d,0,0);x.clearRect(0,0,w,h);x.fillStyle='#415173';x.fillRect(30,25,w-60,24);x.fillStyle='#6ee7ff';x.fillRect(30,65,(w-60)*reduced/raw,24);x.fillStyle='#e8eefc';x.fillText(`raw ${raw} B`,35,42);x.fillText(`reduced ${reduced} B`,35,82);x.fillText(`errors: ${Number(a.max_translation_error||0).toFixed(4)} pos · ${Number(a.max_rotation_error||0).toFixed(4)} rad · ${Number(a.max_scale_error||0).toFixed(4)} scale`,30,112)}
 function chips(id,values){$(id).innerHTML=(values&&values.length)?values.map(v=>`<span class="chip">${esc(v)}</span>`).join(''):'<span class="chip">none</span>'}
-function render(){if(!frames.length){$('stats').textContent=trace.error?.message||'No frames';return}const f=frames[index];slider.value=index;$('frameLabel').textContent=`${index+1}/${frames.length} · ${f.ticks} ticks`;drawSkeleton();drawRoot();drawCompression();$('stats').innerHTML=`<b>State</b><span>${esc(f.state)}</span><b>Transition</b><span>${(f.transition*100).toFixed(1)}%</span><b>Blend</b><span>${(f.blend_weights||[]).map(v=>v.toFixed(2)).join(' / ')}</span><b>Cache</b><span>${f.pose_cache.hits} hit · ${f.pose_cache.misses} miss</span><b>IK</b><span>${f.ik.applied?'on':'off'} · error ${f.ik.error.toFixed(4)}</span><b>Eval</b><span>${f.evaluation_us.toFixed(2)} μs</span>`;chips('events',(f.event_occurrences||[]).map(e=>`${e.name}@${e.absolute_tick}`));chips('markers',f.sync_markers||[]);const active=new Set(f.executed_nodes||[]);$('graphNodes').innerHTML=((trace.graph_plan&&trace.graph_plan.instructions)||[]).map(n=>`<span class="node ${active.has(n.name)?'active':''}">${esc(n.type)}<small> ${esc(n.name)}</small></span>`).join('');const a=trace.compression||{};$('compression').innerHTML=`<b>Keys</b><span>${a.raw_keys||0} → ${a.compressed_keys||0}</span><b>Bytes</b><span>${a.raw_bytes||0} → ${a.compressed_bytes||0}</span>`}
+function render(){if(!frames.length){$('stats').textContent=trace.error?.message||'No frames';return}const f=frames[index];slider.value=index;$('frameLabel').textContent=`${index+1}/${frames.length} · ${f.ticks} ticks`;drawSkeleton();drawRoot();drawCompression();$('stats').innerHTML=`<b>State</b><span>${esc(f.state)}</span><b>Transition</b><span>${(f.transition*100).toFixed(1)}%</span><b>Blend</b><span>${(f.blend_weights||[]).map(v=>v.toFixed(2)).join(' / ')}</span><b>Cache</b><span>${f.pose_cache.hits} hit · ${f.pose_cache.misses} miss</span><b>IK</b><span>${f.ik.applied?'on':'off'} · error ${f.ik.error.toFixed(4)}</span><b>Eval</b><span>${f.evaluation_us.toFixed(2)} μs</span>`;chips('events',(f.event_occurrences||[]).map(e=>`${e.name}@${e.absolute_tick}`));chips('markers',(f.sync_marker_occurrences||[]).map(m=>`${m.name}@${m.absolute_tick} · n${m.source_node}/c${m.clip}`));const active=new Set(f.executed_nodes||[]);$('graphNodes').innerHTML=((trace.graph_plan&&trace.graph_plan.instructions)||[]).map(n=>`<span class="node ${active.has(n.name)?'active':''}">${esc(n.type)}<small> ${esc(n.name)}</small></span>`).join('');const a=trace.compression||{};$('compression').innerHTML=`<b>Keys</b><span>${a.raw_keys||0} → ${a.compressed_keys||0}</span><b>Bytes</b><span>${a.raw_bytes||0} → ${a.compressed_bytes||0}</span>`}
 function toggle(){if(timer){clearInterval(timer);timer=null;$('playPause').textContent='Play'}else if(frames.length){timer=setInterval(()=>{index=(index+1)%frames.length;render()},80);$('playPause').textContent='Pause'}}
 $('playPause').onclick=toggle;$('step').onclick=()=>{if(frames.length)index=Math.min(index+1,frames.length-1);render()};slider.oninput=e=>{index=Number(e.target.value);render()};$('spaceMode').onchange=render;addEventListener('resize',render);render();
 </script></body></html>)HTML";
@@ -457,7 +469,8 @@ std::string generate_viewer_html(std::string_view trace_json) {
 }
 
 Expected<BenchmarkReport, Error> run_benchmark_matrix(DemoBundle& demo) {
-  BenchmarkReport report{compiler_name(), os_name(), cpu_name(), {}};
+  BenchmarkReport report{compiler_name(), os_name(), cpu_name(),
+                         std::string{build_git_sha()}, {}};
   const auto append = [&report](Expected<BenchmarkRow, Error> row) -> Expected<void, Error> {
     if (!row) return make_unexpected(row.error());
     report.rows.push_back(std::move(*row));
@@ -486,7 +499,8 @@ Expected<BenchmarkReport, Error> run_benchmark_matrix(DemoBundle& demo) {
 
 std::string benchmark_to_json(const BenchmarkReport& report) {
   std::ostringstream output;
-  output << std::setprecision(10) << "{\"compiler\":\"" << escape_json(report.compiler)
+  output << std::setprecision(10) << "{\"git_sha\":\"" << escape_json(report.git_sha)
+         << "\",\"compiler\":\"" << escape_json(report.compiler)
          << "\",\"os\":\"" << escape_json(report.operating_system) << "\",\"cpu\":\""
          << escape_json(report.cpu) << "\",\"observation\":\"local machine sample; no cross-machine SLA\",\"rows\":[";
   for (std::size_t index = 0; index < report.rows.size(); ++index) {

@@ -1,9 +1,11 @@
 #include "animgraph/asset/tool.hpp"
+#include "animgraph/core/version.hpp"
 #include "test_support.hpp"
 
 #include <array>
 #include <filesystem>
 #include <sstream>
+#include <string>
 #include <string_view>
 
 ANIMGRAPH_TEST(animc_compiles_inspects_and_validates_real_asset_files) {
@@ -14,6 +16,12 @@ ANIMGRAPH_TEST(animc_compiles_inspects_and_validates_real_asset_files) {
   std::ostringstream standard_output;
   std::ostringstream standard_error;
 
+  const std::array version_args{std::string_view{"--version"}};
+  AG_CHECK_EQ(animgraph::run_asset_tool(version_args, standard_output, standard_error), 0);
+  AG_CHECK(standard_output.str().find("animc sha=" +
+      std::string{animgraph::build_git_sha()}) != std::string::npos);
+
+  standard_output.str({});
   const std::array compile_args{std::string_view{"compile"}, std::string_view{"skeleton"},
                                 std::string_view{output_text}};
   AG_CHECK_EQ(animgraph::run_asset_tool(compile_args, standard_output, standard_error), 0);

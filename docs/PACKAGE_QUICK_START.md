@@ -13,3 +13,5 @@ From the extracted package directory:
 Open `viewer.html` manually in a modern browser. The file is self-contained and
 does not require a server, Node, or a CDN. The executable uses only data shipped in
 the package or generated procedurally; it does not depend on the development tree.
+Both executables, the shipped Trace, Benchmark, embedded Viewer data, and the
+package manifests are checked against one full Git SHA before delivery.

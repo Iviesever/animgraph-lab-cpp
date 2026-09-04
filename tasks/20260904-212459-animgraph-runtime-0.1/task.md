@@ -210,7 +210,7 @@ std::vector<EvaluationResult> evaluate_parallel(std::span<EvaluationJob>, std::s
 - [x] Run required benchmark matrix and store raw JSON plus a machine-qualified report.
 - [ ] Open generated HTML in a browser, verify console zero errors and interactions,
   compare trace/root/state values, narrow viewport, and capture the committed screenshot.
-- [ ] Update records, commit `feat: add trace viewer and benchmark tooling`, push.
+- [x] Update records, commit `feat: add trace viewer and benchmark tooling`, push.
 
 ### Task 9: Property, fuzz, sanitizer, documentation, and packages
 
@@ -226,13 +226,13 @@ std::vector<EvaluationResult> evaluate_parallel(std::span<EvaluationJob>, std::s
 - [x] Generate clean-HEAD Win64/source ZIPs, manifest, SHA-256 files; extract into
   `artifacts/verification/extracted-win64`, run `verify`, `evaluate`, and
   `generate-viewer`, then remove only that exact verified extraction directory.
-- [ ] Commit `test: complete verification and delivery artifacts`, push.
+- [x] Commit `test: complete verification and delivery artifacts`, push.
 
 ### Task 10: Independent audit and Draft PR
 
-- [ ] Dispatch at most two read-only reviewers with non-overlapping scopes: math/graph/
+- [x] Dispatch at most two read-only reviewers with non-overlapping scopes: math/graph/
   compression and tests/viewer/performance/packaging. Reviewers do not edit files.
-- [ ] Classify findings; for every confirmed Blocker/High write and witness a RED test,
+- [x] Classify findings; for every confirmed Blocker/High write and witness a RED test,
   apply the minimal fix, and rerun the affected plus full gates. Add only directly
   related low-risk Medium fixes.
 - [ ] Rebuild artifacts after fixes so binary/source ZIP, manifests, reports, trace,

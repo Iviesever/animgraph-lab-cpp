@@ -15,4 +15,7 @@ transition. Non-interruptible transitions finish normally. The event policy emit
 crossfade frames do not repeat them. Graph evaluation stable-deduplicates identical
 clip occurrences by propagating active/crossfade pose branches; occurrence records
 retain absolute Tick, cycle, source node, and clip. Configured sync markers adjust
-the target ClipPlayer clock inside the same compiled runtime.
+the exact compile-bound target ClipPlayer before that frame is sampled. The selected
+transition index is carried by the state update, local marker time is lifted to a
+monotonic absolute clock, and the synchronization jump is a discontinuity that does
+not synthesize skipped Event or Root Motion intervals.

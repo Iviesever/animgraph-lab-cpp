@@ -5,6 +5,7 @@
 #include <cmath>
 #include <map>
 #include <limits>
+#include <numbers>
 #include <ranges>
 #include <set>
 #include <sstream>
@@ -109,18 +110,28 @@ Expected<void, Error> bind_parameter(NodeConfig& config, std::uint16_t slot,
   if (parameter.empty())
     return make_unexpected(Error{ErrorCode::graph, "parameter binding name is empty"});
   if (auto* blend = std::get_if<Blend1DNodeConfig>(&config); blend && slot == 0) {
+    if (!blend->parameter.empty())
+      return make_unexpected(Error{ErrorCode::graph, "value pin is already bound"});
     blend->parameter = std::move(parameter); return {};
   }
   if (auto* blend = std::get_if<Blend2DNodeConfig>(&config); blend && slot < 2) {
+    if (!blend->parameters[slot].empty())
+      return make_unexpected(Error{ErrorCode::graph, "value pin is already bound"});
     blend->parameters[slot] = std::move(parameter); return {};
   }
   if (auto* additive = std::get_if<AdditiveNodeConfig>(&config); additive && slot == 0) {
+    if (!additive->parameter.empty())
+      return make_unexpected(Error{ErrorCode::graph, "value pin is already bound"});
     additive->parameter = std::move(parameter); return {};
   }
   if (auto* layer = std::get_if<LayeredNodeConfig>(&config); layer && slot == 0) {
+    if (!layer->parameter.empty())
+      return make_unexpected(Error{ErrorCode::graph, "value pin is already bound"});
     layer->parameter = std::move(parameter); return {};
   }
   if (auto* ik = std::get_if<TwoBoneIkNodeConfig>(&config); ik && slot < 4) {
+    if (!ik->parameters[slot].empty())
+      return make_unexpected(Error{ErrorCode::graph, "value pin is already bound"});
     ik->parameters[slot] = std::move(parameter); return {};
   }
   return make_unexpected(Error{ErrorCode::graph, "value pin does not exist on target node"});
@@ -202,6 +213,12 @@ void write_config(std::ostream& output, const NodeConfig& config) {
     for (std::size_t index = 0; index < state->sync_clip_indices.size(); ++index) {
       if (index) output << ',';
       if (state->sync_clip_indices[index]) output << *state->sync_clip_indices[index];
+      else output << "null";
+    }
+    output << "],\"sync_players\":[";
+    for (std::size_t index = 0; index < state->sync_player_indices.size(); ++index) {
+      if (index) output << ',';
+      if (state->sync_player_indices[index]) output << *state->sync_player_indices[index];
       else output << "null";
     }
     output << ']';
@@ -336,6 +353,13 @@ Expected<CompiledGraph, Error> compile_graph(const GraphDescription& description
           return make_unexpected(Error{ErrorCode::graph, "Blend2D point is invalid"});
       if (!std::isfinite(blend->fallbacks[0]) || !std::isfinite(blend->fallbacks[1]))
         return make_unexpected(Error{ErrorCode::graph, "Blend2D fallback is invalid"});
+      const float determinant =
+          (blend->points[1].x - blend->points[0].x) *
+              (blend->points[2].y - blend->points[0].y) -
+          (blend->points[2].x - blend->points[0].x) *
+              (blend->points[1].y - blend->points[0].y);
+      if (!std::isfinite(determinant) || std::abs(determinant) <= 1.0e-8F)
+        return make_unexpected(Error{ErrorCode::graph, "Blend2D triangle is degenerate"});
     }
     if (const auto* additive = std::get_if<AdditiveNodeConfig>(&node.config);
         additive && (!std::isfinite(additive->fallback) || additive->fallback < 0 || additive->fallback > 1))
@@ -352,7 +376,12 @@ Expected<CompiledGraph, Error> compile_graph(const GraphDescription& description
           ik->root.value >= max_joints || ik->mid.value >= max_joints ||
           ik->end.value >= max_joints || !finite(ik->pole) ||
           !std::ranges::all_of(ik->fallbacks, [](float value) { return std::isfinite(value); }) ||
-          ik->fallbacks[3] < 0 || ik->fallbacks[3] > 1)
+          ik->fallbacks[3] < 0 || ik->fallbacks[3] > 1 ||
+          (ik->limit && (!std::isfinite(ik->limit->min_bend_radians) ||
+                         !std::isfinite(ik->limit->max_bend_radians) ||
+                         ik->limit->min_bend_radians < 0.0F ||
+                         ik->limit->max_bend_radians > std::numbers::pi_v<float> ||
+                         ik->limit->min_bend_radians > ik->limit->max_bend_radians)))
         return make_unexpected(Error{ErrorCode::graph, "IK node configuration is invalid"});
     }
     if (const auto* state = std::get_if<StateMachineNodeConfig>(&node.config); state) {
@@ -461,6 +490,26 @@ Expected<CompiledGraph, Error> compile_graph(const GraphDescription& description
     state_cursor = instruction.state_offset + instruction.state_size;
     instruction.clip_index = node.clip_index;
     instruction.config = node.config;
+    if (auto* state = std::get_if<StateMachineNodeConfig>(&instruction.config)) {
+      for (std::size_t state_index = 0; state_index < state->sync_clip_indices.size(); ++state_index) {
+        if (!state->sync_clip_indices[state_index]) continue;
+        std::optional<std::size_t> player;
+        for (const auto candidate_id : order) {
+          const auto& candidate = *nodes.at(candidate_id);
+          if (candidate.type != NodeType::clip_player ||
+              candidate.clip_index != state->sync_clip_indices[state_index]) continue;
+          const auto candidate_index = position.at(candidate_id);
+          if (player)
+            return make_unexpected(Error{ErrorCode::graph,
+                                         "state sync clip binding is ambiguous"});
+          player = candidate_index;
+        }
+        if (!player)
+          return make_unexpected(Error{ErrorCode::graph,
+                                       "state sync clip has no reachable player"});
+        state->sync_player_indices[state_index] = *player;
+      }
+    }
     for (std::uint16_t pin = 0; pin < required_pose_inputs(node.type); ++pin) {
       instruction.inputs.push_back(node_slots.at(incoming.at({id, pin})));
     }

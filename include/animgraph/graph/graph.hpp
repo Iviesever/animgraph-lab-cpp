@@ -85,6 +85,7 @@ struct TwoBoneIkNodeConfig {
 struct StateMachineNodeConfig {
   StateMachineDefinition definition;
   std::array<std::optional<std::size_t>, 2> sync_clip_indices;
+  std::array<std::optional<std::size_t>, 2> sync_player_indices;
 };
 using NodeConfig = std::variant<std::monostate, ClipPlayerNodeConfig,
     Blend1DNodeConfig, Blend2DNodeConfig, AdditiveNodeConfig, LayeredNodeConfig,

@@ -41,6 +41,7 @@ struct StateMachineUpdate {
   StateId source;
   StateId target;
   float alpha{};
+  std::optional<std::size_t> transition_index;
   std::vector<std::string> events;
 };
 

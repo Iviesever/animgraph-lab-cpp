@@ -2,12 +2,12 @@
 
 ## Current state
 
-- Active PACT: PACT-70 runtime/CLI/trace/viewer/benchmark code and artifacts are
-  green; interactive browser QA is blocked by the browser URL policy.
+- Active PACT: final audit corrections are locally green; interactive browser QA
+  remains blocked by the browser URL policy.
 - Target branch: `main` until verified baseline push, then
   `feat/animgraph-runtime-0.1` from fetched `origin/main`.
 - Baseline/base revision: `e1b85fbef4d78720bfb1fe060866c435a5ed48f3`.
-- Last-known-good revision: `432f1c6b0a534a4b178f17d45f6647b9ca00ccd1`.
+- Last-known-good pushed revision: `c8706f551615de354bffe3bf8086085e9fbf0728`.
 
 ## Environment observations
 
@@ -76,7 +76,12 @@
 - Two read-only audits returned not-ready findings. Audit regression cycles now pass
   58/58 plus enhanced Property/Fuzz and address the confirmed code-level
   Blocker/High items. Final cross-compiler/sanitizer/package regeneration remains.
+- Final audit regression now passes 67/67 plus Property/Fuzz on CMake MSVC
+  Debug/Release. Both reviewers report zero remaining Blocker/High. The delivery
+  pipeline binds both executables and both archives to one final SHA and rebuilds
+  the extracted Source package. Final commit/CI/package/Draft PR remain.
 
 ## Next atomic action
 
-Commit audit fixes, rerun full CI/sanitizers, then regenerate final clean-HEAD package.
+Commit and push the final audit candidate, wait for four-way CI, then regenerate
+and verify both clean-HEAD packages before creating the Draft PR.

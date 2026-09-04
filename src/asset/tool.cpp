@@ -1,6 +1,7 @@
 #include "animgraph/asset/tool.hpp"
 
 #include "animgraph/asset/codec.hpp"
+#include "animgraph/core/version.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -69,6 +70,7 @@ AnimationClip sample_animation() {
 
 void usage(std::ostream& output) {
   output << "Usage:\n"
+            "  animc --version\n"
             "  animc compile <skeleton|clip> <output>\n"
             "  animc inspect <asset>\n"
             "  animc validate <asset>\n";
@@ -81,6 +83,10 @@ int run_asset_tool(std::span<const std::string_view> arguments,
   if (arguments.empty()) {
     usage(error);
     return 2;
+  }
+  if (arguments.size() == 1 && arguments[0] == "--version") {
+    output << version_string() << " animc sha=" << build_git_sha() << '\n';
+    return 0;
   }
   if (arguments[0] == "compile") {
     if (arguments.size() != 3) { usage(error); return 2; }

@@ -57,6 +57,7 @@ ANIMGRAPH_TEST(trace_serializes_real_runtime_fields_and_viewer_is_self_contained
   for (const std::string_view field : {"\"skeleton\"", "\"local_pose\"", "\"model_pose\"",
        "\"graph_plan\"", "\"state\"", "\"transition\"", "\"blend_weights\"",
        "\"pose_cache\"", "\"events\"", "\"sync_markers\"", "\"root_motion\"",
+       "\"sync_marker_occurrences\"",
        "\"ik\"", "\"compression\"", "\"evaluation_us\"", "\"success\":true"}) {
     AG_CHECK(json.find(field) != std::string::npos);
   }
@@ -85,6 +86,7 @@ ANIMGRAPH_TEST(benchmark_covers_required_character_counts_and_scenarios) {
   auto demo = make_locomotion_demo().value();
   const auto report = run_benchmark_matrix(demo);
   AG_CHECK(report.has_value());
+  AG_CHECK_EQ(report->git_sha, std::string{build_git_sha()});
   for (const std::size_t count : {1U, 100U, 1000U}) {
     AG_CHECK(std::ranges::find(report->rows, count, &BenchmarkRow::characters) != report->rows.end());
   }

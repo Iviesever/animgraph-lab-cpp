@@ -14,7 +14,10 @@ floats, and invalid hierarchy fail closed. C++ struct memory is never persisted.
 Skeleton records contain compiled parent, original index, name/semantic references,
 and two explicit 10-float Transforms. Clip records contain absolute array offsets
 and counts; strings use relative offset/length pairs. Graph envelopes store payload
-length, node count, and checksum without reconstructing runtime scheduling.
+length, node count, and checksum. Their non-recursive canonical-schema validator
+checks exact field order, node/config enum shapes, arity, slot initialization,
+state layout, parameter indices, sync bindings, numeric ranges, and node count
+without accepting decoy fields or unbounded JSON nesting.
 
 Round trips are byte-stable. `animc compile`, `inspect`, and `validate` exercise the
 same codecs used by tests and fuzzing.
