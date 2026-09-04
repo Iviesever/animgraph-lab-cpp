@@ -119,7 +119,7 @@ std::expected<AnimationClip, Error> decode_clip(std::span<const std::byte>);
   half-open event intervals, marker policy, explicit little-endian fields and CRC32.
 - [x] Add `animc compile`, `inspect`, and `validate` plumbing through codec APIs.
 - [x] Run focused/all/MQB/MSVC tests and an initial 10,000-input malformed corpus.
-- [ ] Update records, commit `feat: add clips events and versioned assets`, push.
+- [x] Update records, commit `feat: add clips events and versioned assets`, push.
 
 ### Task 4: PACT-30 deterministic compression
 

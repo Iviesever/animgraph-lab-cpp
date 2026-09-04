@@ -2,12 +2,11 @@
 
 ## Current state
 
-- Active PACT: PACT-20 clip sampling, events, markers, and assets; local gates are
-  green and remote cross-compiler verification is pending.
+- Active PACT: PACT-20 is complete; PACT-30 compression is next.
 - Target branch: `main` until verified baseline push, then
   `feat/animgraph-runtime-0.1` from fetched `origin/main`.
 - Baseline/base revision: `e1b85fbef4d78720bfb1fe060866c435a5ed48f3`.
-- Last-known-good revision: `83efbc45eaf54f4530649676619e38896208af42`.
+- Last-known-good revision: `b6b23dd15080281d7bad5627bcd137c05ac57994`.
 
 ## Environment observations
 
@@ -44,7 +43,9 @@
 - PACT-20 witnessed core and tool RED states, then passed 18/18 tests including
   10,000 bounded parser inputs. `animc` generated, inspected, and validated real
   `.agskel`/`.agclip` v1 samples; CMake/MSVC and 6-source drift checks passed.
+- PACT-20 CI run `33882202119` passed all MSVC/Clang/GCC jobs after retaining the
+  original Linux missing-field-initializer failure as RED evidence.
 
 ## Next atomic action
 
-Commit/push PACT-20, require MSVC/Clang/GCC CI green, then begin compression tests.
+Write PACT-30 compression oracle tests for all six required procedural clip shapes.
