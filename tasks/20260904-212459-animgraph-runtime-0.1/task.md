@@ -172,7 +172,7 @@ validated `Blend1DSample`, `Blend2DSample`, `LayerMask`, `StateMachineDefinition
 - [x] Witness RED and implement only the tested blend/state/root contracts.
 - [x] Document crossfade event ownership and root-motion remove/retain policy in code
   contracts and trace fields.
-- [ ] Run all checks and stable event-order repetitions, update records, commit
+- [x] Run all checks and stable event-order repetitions, update records, commit
   `feat: add blend state and root motion runtime`, push.
 
 ### Task 7: PACT-60 two-bone IK and character batches
