@@ -87,7 +87,10 @@ ANIMGRAPH_TEST(compression_reduces_linear_keys_and_is_byte_stable) {
   const auto first = compress_clip(clip, settings, first_report);
   const auto second = compress_clip(clip, settings, second_report);
   AG_CHECK(first.has_value() && second.has_value());
-  AG_CHECK_EQ(encode_clip(first->clip).value(), encode_clip(second->clip).value());
+  const auto first_bytes = encode_clip(first->clip);
+  const auto second_bytes = encode_clip(second->clip);
+  AG_CHECK(first_bytes.has_value() && second_bytes.has_value());
+  AG_CHECK_EQ(*first_bytes, *second_bytes);
   AG_CHECK(first_report.compressed_keys < first_report.raw_keys);
   verify_error_grid(clip, *first, settings);
 }
