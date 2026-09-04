@@ -157,7 +157,7 @@ std::expected<EvaluationResult, Error> evaluate(const EvaluationContext&, const 
 - [x] Witness RED, implement builder validation and stable ID topological compilation.
 - [x] Implement liveness slot allocation, canonical JSON, FNV-1a identity, debug slot
   guards, parameter/state layout, and per-instance evaluation.
-- [ ] Run all checks, repeat plan identity, update records, commit
+- [x] Run all checks, repeat plan identity, update records, commit
   `feat: compile and evaluate animation graphs`, push.
 
 ### Task 6: PACT-50 blend trees, layers, state machine, and root motion
