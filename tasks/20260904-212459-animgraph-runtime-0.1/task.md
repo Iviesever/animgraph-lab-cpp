@@ -219,9 +219,9 @@ std::vector<EvaluationResult> evaluate_parallel(std::span<EvaluationJob>, std::s
   and serial/parallel behavior.
 - [x] Implement 100,000 bounded codec inputs including recomputed-CRC deep-parser data;
   run MSVC Release and an available ASan/UBSan Clang/GCC environment.
-- [ ] Run MQB Debug/Release, CMake MSVC Debug/Release, CTest, available Clang and GCC,
+- [x] Run MQB Debug/Release, CMake MSVC Debug/Release, CTest, available Clang and GCC,
   and source-set drift verification; record missing environments honestly.
-- [ ] Write every required document under `docs/`, including 12 concrete live-change
+- [x] Write every required document under `docs/`, including 12 concrete live-change
   drills and exact AI authorship; align README claims with executable evidence.
 - [ ] Generate clean-HEAD Win64/source ZIPs, manifest, SHA-256 files; extract into
   `artifacts/verification/extracted-win64`, run `verify`, `evaluate`, and

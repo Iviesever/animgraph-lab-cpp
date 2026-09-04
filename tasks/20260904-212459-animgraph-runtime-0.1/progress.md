@@ -67,7 +67,10 @@
 - Added `.aggraph` v1 and passed 46/46 unit/integration tests. MQB/MSVC Release
   passed 10,000 valid + 10,000 invalid properties, a 1,000-character batch oracle,
   and 100,000 three-format fuzz inputs. CMake/MSVC Debug and Release passed 3/3.
+- CI run `33888003456` passed MSVC, Clang, GCC, and Clang ASan+UBSan after an
+  assertion lifetime bug was found and fixed. All 20 required docs and 12 drills
+  are written and placeholder-free.
 
 ## Next atomic action
 
-Push property/fuzz and sanitizer CI, then write full documentation and packages.
+Commit documentation, then package exact clean HEAD and verify from extraction.

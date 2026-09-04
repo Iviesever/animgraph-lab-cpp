@@ -67,6 +67,49 @@ The runtime feature work is tracked under
 - Deterministic 10,000-valid/10,000-invalid property verification and a 100,000
   input three-format fuzz harness with recomputed-CRC deep-parser cases.
 
+## Quick start
+
+```powershell
+# Primary Windows/MSVC developer path
+mqb run --profile release -- verify
+
+# Portable project path (the script enters the discovered VS developer environment)
+./scripts/run_cmake_msvc.ps1 -Configuration Release
+
+# Produce an inspectable run
+./.mqb/bin/animgraph_lab.exe evaluate --sample locomotion --trace trace.json --git-sha local
+./.mqb/bin/animgraph_lab.exe generate-viewer --trace trace.json --out viewer.html
+```
+
+The CLI commands are `sample`, `evaluate`, `benchmark`, `compile-asset`,
+`inspect-asset`, `generate-viewer`, and `verify`. The separate `animc` tool exposes
+`compile`, `inspect`, and `validate` for versioned runtime assets.
+
+## Verification
+
+- Unit/integration: 46 named tests.
+- Property: 10,000 valid + 10,000 invalid bounded cases and 1,000 serial/parallel jobs.
+- Fuzz: 100,000 bounded inputs across Skeleton, Clip, and Graph formats.
+- Toolchains: MSVC Debug/Release, Ubuntu Clang/GCC, and Clang ASan+UBSan.
+- Evidence and exact commands: `tasks/20260904-212459-animgraph-runtime-0.1/evidence/`.
+
+The sample debugger is `viewer/animgraph_debugger.html` and consumes the committed
+real Trace at `samples/trace/locomotion.trace.json`. Automated browser loading of a
+local file was blocked by the harness URL policy, so interactive browser QA and a
+browser screenshot are not claimed; static control/embedding/responsive checks pass.
+
+## Determinism boundary
+
+Identical assets, parameters, and binary produce stable behavior. Asset bytes,
+canonical Graph Plans, identities, and event order are stable. Pose floats are
+compared with declared tolerances across compilers; this is not a cross-platform
+bitwise-deterministic rollback simulation.
+
+## Publication policy
+
+The candidate is source-only on GitHub. Local Win64 packages are verified locally
+and are not uploaded as release assets. No tag or release is created in this cycle.
+
 ## License
 
 MIT. See `LICENSE`.
