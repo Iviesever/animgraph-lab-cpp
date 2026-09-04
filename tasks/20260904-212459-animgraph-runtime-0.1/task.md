@@ -94,7 +94,7 @@ std::expected<SkinMatrixPalette, Error> model_to_skin(const CompiledSkeleton&, c
 - [x] Implement finite math with guarded normalization and SkeletonBuilder validation,
   stable parent-before-child remapping, local/model transforms, and skin matrices.
 - [x] Run the focused suite, all tests, MQB Debug twice, and CMake MSVC Debug.
-- [ ] Update evidence/progress/handoff, commit `feat: add animation math and poses`, push.
+- [x] Update evidence/progress/handoff, commit `feat: add animation math and poses`, push.
 
 ### Task 3: PACT-20 clip sampling, events, markers, and asset version 1
 

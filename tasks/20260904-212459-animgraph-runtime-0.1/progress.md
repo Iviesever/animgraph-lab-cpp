@@ -2,12 +2,11 @@
 
 ## Current state
 
-- Active PACT: PACT-10 math, skeleton, and pose; local gates are green and remote
-  cross-compiler verification is pending.
+- Active PACT: PACT-10 math, skeleton, and pose is complete; PACT-20 is next.
 - Target branch: `main` until verified baseline push, then
   `feat/animgraph-runtime-0.1` from fetched `origin/main`.
 - Baseline/base revision: `e1b85fbef4d78720bfb1fe060866c435a5ed48f3`.
-- Last-known-good revision: `e1b85fbef4d78720bfb1fe060866c435a5ed48f3`.
+- Last-known-good revision: `83efbc45eaf54f4530649676619e38896208af42`.
 
 ## Environment observations
 
@@ -39,7 +38,9 @@
   `origin/main@e1b85fb` and pushed before feature edits.
 - PACT-10 RED was witnessed, then MQB/MSVC and CMake/MSVC passed 9/9 math,
   skeleton, pose, and boundary tests; 3 production source manifests match.
+- PACT-10 CI run `33880547747` passed Windows/MSVC, Ubuntu/Clang 18.1.3, and
+  Ubuntu/GCC 13.3.0. The prior Clang `std::expected` failure is retained as RED.
 
 ## Next atomic action
 
-Commit/push PACT-10, require MSVC/Clang/GCC CI green, then begin PACT-20 tests.
+Write PACT-20 clip/time/event/marker/asset tests and witness missing-interface RED.

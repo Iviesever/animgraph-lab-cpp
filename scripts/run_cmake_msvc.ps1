@@ -5,11 +5,15 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$vsRoot = 'C:\Program Files\Microsoft Visual Studio'
-$vcvars = Get-ChildItem -LiteralPath $vsRoot -Filter 'vcvars64.bat' -Recurse -File |
-  Sort-Object FullName -Descending |
-  Select-Object -First 1 -ExpandProperty FullName
-if (-not $vcvars) {
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+if (-not (Test-Path -LiteralPath $vswhere)) {
+  throw 'Unable to locate vswhere.exe.'
+}
+$installation = & $vswhere -latest -products '*' `
+  -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+  -property installationPath
+$vcvars = Join-Path $installation 'VC\Auxiliary\Build\vcvars64.bat'
+if (-not (Test-Path -LiteralPath $vcvars)) {
   throw 'Unable to locate vcvars64.bat.'
 }
 
