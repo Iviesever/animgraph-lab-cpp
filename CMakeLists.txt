@@ -20,6 +20,9 @@ target_include_directories(animgraph PUBLIC include)
 add_executable(animgraph_lab src/cli/main.cpp)
 target_link_libraries(animgraph_lab PRIVATE animgraph)
 
+add_executable(animc src/tools/animc.cpp)
+target_link_libraries(animc PRIVATE animgraph)
+
 add_executable(animgraph_tests ${ANIMGRAPH_TEST_SOURCES})
 target_include_directories(animgraph_tests PRIVATE include tests)
 target_link_libraries(animgraph_tests PRIVATE animgraph)

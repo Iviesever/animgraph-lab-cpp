@@ -111,14 +111,14 @@ std::expected<std::vector<std::byte>, Error> encode_clip(const AnimationClip&);
 std::expected<AnimationClip, Error> decode_clip(std::span<const std::byte>);
 ```
 
-- [ ] Add failing tests for clamp/loop/ping-pong, zero/end/negative/large time,
+- [x] Add failing tests for clamp/loop/ping-pong, zero/end/negative/large time,
   one/missing keys, seam events without duplicates, marker ordering, byte-stable
   round trips, bad magic/version/endian/CRC/offset/count/float/truncation.
-- [ ] Run the focused suite and save the missing-interface RED output.
-- [ ] Implement sorted tracks, reference-pose fill, shortest-path rotation sampling,
+- [x] Run the focused suite and save the missing-interface RED output.
+- [x] Implement sorted tracks, reference-pose fill, shortest-path rotation sampling,
   half-open event intervals, marker policy, explicit little-endian fields and CRC32.
-- [ ] Add `compile-asset`, `inspect-asset`, and `validate` CLI plumbing through codec APIs.
-- [ ] Run focused/all/MQB/MSVC tests and an initial 10,000-byte malformed corpus.
+- [x] Add `animc compile`, `inspect`, and `validate` plumbing through codec APIs.
+- [x] Run focused/all/MQB/MSVC tests and an initial 10,000-input malformed corpus.
 - [ ] Update records, commit `feat: add clips events and versioned assets`, push.
 
 ### Task 4: PACT-30 deterministic compression

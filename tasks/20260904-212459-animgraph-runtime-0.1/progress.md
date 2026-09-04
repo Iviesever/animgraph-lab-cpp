@@ -2,7 +2,8 @@
 
 ## Current state
 
-- Active PACT: PACT-10 math, skeleton, and pose is complete; PACT-20 is next.
+- Active PACT: PACT-20 clip sampling, events, markers, and assets; local gates are
+  green and remote cross-compiler verification is pending.
 - Target branch: `main` until verified baseline push, then
   `feat/animgraph-runtime-0.1` from fetched `origin/main`.
 - Baseline/base revision: `e1b85fbef4d78720bfb1fe060866c435a5ed48f3`.
@@ -40,7 +41,10 @@
   skeleton, pose, and boundary tests; 3 production source manifests match.
 - PACT-10 CI run `33880547747` passed Windows/MSVC, Ubuntu/Clang 18.1.3, and
   Ubuntu/GCC 13.3.0. The prior Clang `std::expected` failure is retained as RED.
+- PACT-20 witnessed core and tool RED states, then passed 18/18 tests including
+  10,000 bounded parser inputs. `animc` generated, inspected, and validated real
+  `.agskel`/`.agclip` v1 samples; CMake/MSVC and 6-source drift checks passed.
 
 ## Next atomic action
 
-Write PACT-20 clip/time/event/marker/asset tests and witness missing-interface RED.
+Commit/push PACT-20, require MSVC/Clang/GCC CI green, then begin compression tests.

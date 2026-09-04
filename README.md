@@ -39,6 +39,12 @@ The runtime feature work is tracked under
 - Skeleton validation with one-root/cycle/parent/count checks and stable
   parent-before-child compilation.
 - Local-pose to model-pose evaluation and model-to-skin matrix palettes.
+- 48 kHz integer animation time with Clamp/Loop/PingPong normalization, reference
+  pose completion, Vec3 interpolation, shortest-path quaternion sampling, ordered
+  events, and sync markers.
+- Byte-stable little-endian `.agskel`/`.agclip` version 1 assets with explicit
+  bounds, offsets, string tables, finite-value checks, and CRC32 integrity.
+- `animc compile|inspect|validate` for programmatic sample runtime assets.
 
 ## License
 

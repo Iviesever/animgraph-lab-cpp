@@ -18,7 +18,10 @@
     "extra_sources": [
       "src/core/version.cpp",
       "src/math/math.cpp",
-      "src/skeleton/skeleton.cpp"
+      "src/skeleton/skeleton.cpp",
+      "src/clip/clip.cpp",
+      "src/asset/codec.cpp",
+      "src/asset/tool.cpp"
     ]
   },
   "profiles": {
