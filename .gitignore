@@ -3,6 +3,8 @@
 /out/
 /artifacts/generated/
 /artifacts/tests/
+/artifacts/package-staging/
+/artifacts/verification/
 /artifacts/release/*.zip
 /artifacts/release/*.exe
 /artifacts/release/*.pdb
