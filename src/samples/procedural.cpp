@@ -105,9 +105,9 @@ Expected<DemoBundle, Error> make_locomotion_demo() {
   const auto turn = builder.add_node(NodeType::clip_player, "TurnPlayer");
   const auto aim = builder.add_node(NodeType::clip_player, "AimPlayer");
   const auto upper = builder.add_node(NodeType::clip_player, "UpperLayerPlayer");
-  for (const auto [node, clip] : {std::pair{idle, 0U}, std::pair{walk, 1U},
-                                  std::pair{run, 2U}, std::pair{turn, 3U},
-                                  std::pair{aim, 4U}, std::pair{upper, 5U}}) {
+  for (const auto& [node, clip] : {std::pair{idle, 0U}, std::pair{walk, 1U},
+                                   std::pair{run, 2U}, std::pair{turn, 3U},
+                                   std::pair{aim, 4U}, std::pair{upper, 5U}}) {
     auto bound = builder.set_clip(node, clip);
     if (!bound) return make_unexpected(bound.error());
   }

@@ -275,16 +275,19 @@ std::string trace_to_json(const TraceDocument& trace) {
     }
     output << "],\"blend_weights\":[";
     for (std::size_t index = 0; index < frame.blend_weights.size(); ++index) {
-      if (index) output << ','; output << frame.blend_weights[index];
+      if (index) output << ',';
+      output << frame.blend_weights[index];
     }
     output << "],\"pose_cache\":{\"hits\":" << frame.pose_cache_hits
            << ",\"misses\":" << frame.pose_cache_misses << "},\"events\":[";
     for (std::size_t index = 0; index < frame.events.size(); ++index) {
-      if (index) output << ','; output << '"' << escape_json(frame.events[index]) << '"';
+      if (index) output << ',';
+      output << '"' << escape_json(frame.events[index]) << '"';
     }
     output << "],\"sync_markers\":[";
     for (std::size_t index = 0; index < frame.sync_markers.size(); ++index) {
-      if (index) output << ','; output << '"' << escape_json(frame.sync_markers[index]) << '"';
+      if (index) output << ',';
+      output << '"' << escape_json(frame.sync_markers[index]) << '"';
     }
     output << "],\"root_motion\":"; json_transform(output, frame.root_motion);
     output << ",\"root_accumulated\":"; json_transform(output, frame.root_accumulated);
