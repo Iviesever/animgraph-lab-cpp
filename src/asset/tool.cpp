@@ -51,9 +51,12 @@ Expected<CompiledSkeleton, Error> sample_skeleton() {
 }
 
 AnimationClip sample_animation() {
-  AnimationClip clip{.name = "sample", .duration = AnimTime{AnimTime::ticks_per_second},
-                     .mode = ClipPlaybackMode::loop};
-  JointTrack root{.joint = JointId{0}};
+  AnimationClip clip;
+  clip.name = "sample";
+  clip.duration = AnimTime{AnimTime::ticks_per_second};
+  clip.mode = ClipPlaybackMode::loop;
+  JointTrack root;
+  root.joint = JointId{0};
   root.translations = {{AnimTime{0}, Vec3{0, 0, 0}},
                        {clip.duration, Vec3{1, 0, 0}}};
   root.rotations = {{AnimTime{0}, Quat::identity()}};

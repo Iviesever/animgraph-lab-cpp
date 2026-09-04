@@ -403,8 +403,10 @@ Expected<AnimationClip, Error> decode_clip(std::span<const std::byte> bytes) {
   }
   const auto clip_name = read_string(bytes, strings_offset, strings_size, name_offset, name_length);
   if (!clip_name) return make_unexpected(clip_name.error());
-  AnimationClip clip{.name = *clip_name, .duration = AnimTime{duration},
-                     .mode = static_cast<ClipPlaybackMode>(mode_value)};
+  AnimationClip clip;
+  clip.name = *clip_name;
+  clip.duration = AnimTime{duration};
+  clip.mode = static_cast<ClipPlaybackMode>(mode_value);
 
   const std::size_t key_region = markers_offset + marker_count * marker_record_size;
   for (std::size_t index = 0; index < track_count; ++index) {
