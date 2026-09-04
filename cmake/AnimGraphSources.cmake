@@ -6,6 +6,8 @@ set(ANIMGRAPH_SOURCES
   src/asset/codec.cpp
   src/asset/tool.cpp
   src/compression/compression.cpp
+  src/graph/graph.cpp
+  src/runtime/runtime.cpp
 )
 
 set(ANIMGRAPH_TEST_SOURCES
@@ -15,4 +17,5 @@ set(ANIMGRAPH_TEST_SOURCES
   tests/clip_asset_tests.cpp
   tests/asset_tool_tests.cpp
   tests/compression_tests.cpp
+  tests/graph_runtime_tests.cpp
 )

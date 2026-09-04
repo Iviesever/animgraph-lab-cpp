@@ -151,11 +151,11 @@ std::uint64_t plan_identity(const CompiledGraph&);
 std::expected<EvaluationResult, Error> evaluate(const EvaluationContext&, const CompiledGraph&, GraphInstance&);
 ```
 
-- [ ] Add failing tests for typed pins, duplicates, missing inputs, cycles, stable topo,
+- [x] Add failing tests for typed pins, duplicates, missing inputs, cycles, stable topo,
   dead nodes, constant values, state layout, last-use slots, reuse-disabled oracle,
   stable JSON/identity, cache hits/invalidation/isolation, and schedule-only execution.
-- [ ] Witness RED, implement builder validation and stable ID topological compilation.
-- [ ] Implement liveness slot allocation, canonical JSON, FNV-1a identity, debug slot
+- [x] Witness RED, implement builder validation and stable ID topological compilation.
+- [x] Implement liveness slot allocation, canonical JSON, FNV-1a identity, debug slot
   guards, parameter/state layout, and per-instance evaluation.
 - [ ] Run all checks, repeat plan identity, update records, commit
   `feat: compile and evaluate animation graphs`, push.

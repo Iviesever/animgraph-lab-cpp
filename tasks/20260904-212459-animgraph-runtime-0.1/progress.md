@@ -2,7 +2,7 @@
 
 ## Current state
 
-- Active PACT: PACT-30 compression is complete; PACT-40 graph compiler/runtime is next.
+- Active PACT: PACT-40 graph compiler/runtime; local gates are green and CI pending.
 - Target branch: `main` until verified baseline push, then
   `feat/animgraph-runtime-0.1` from fetched `origin/main`.
 - Baseline/base revision: `e1b85fbef4d78720bfb1fe060866c435a5ed48f3`.
@@ -50,7 +50,10 @@
   reported maxima stayed within 0.02 position, 0.01 radian, and 0.01 scale limits.
 - PACT-30 CI run `33882978707` passed MSVC, Clang, and GCC after GCC's dangling
   test-reference diagnostic was fixed without changing production code.
+- PACT-40 witnessed graph-interface and constant-folding RED states, then passed
+  27/27 tests, no-reuse output oracle, stable plan identity, cache invalidation and
+  isolation, CMake/MSVC, and 9-source drift checks.
 
 ## Next atomic action
 
-Write PACT-40 graph compiler, slot lifetime, identity, evaluator, and cache RED tests.
+Commit/push PACT-40, require three-way CI green, then add blend/state/root tests.

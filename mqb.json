@@ -22,7 +22,9 @@
       "src/clip/clip.cpp",
       "src/asset/codec.cpp",
       "src/asset/tool.cpp",
-      "src/compression/compression.cpp"
+      "src/compression/compression.cpp",
+      "src/graph/graph.cpp",
+      "src/runtime/runtime.cpp"
     ]
   },
   "profiles": {

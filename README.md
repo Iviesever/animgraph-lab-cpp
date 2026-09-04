@@ -47,6 +47,11 @@ The runtime feature work is tracked under
 - `animc compile|inspect|validate` for programmatic sample runtime assets.
 - Deterministic constant-track detection and error-bounded translation, quaternion,
   and scale key reduction with per-track byte/key/error reports.
+- Declarative graph validation and compilation with typed pose connections, full
+  cycle checks, dead-node elimination, stable topology, constant parameter folding,
+  state layout, last-use pose-slot reuse, canonical plan JSON, and stable identity.
+- Per-character graph instances with compiled ReferencePose/ClipPlayer/PoseCache/
+  Output execution, debug slot guards, cache invalidation, and instance isolation.
 
 ## License
 
