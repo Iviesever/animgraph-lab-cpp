@@ -2,7 +2,7 @@
 
 ## Current state
 
-- Active PACT: PACT-40 is complete; PACT-50 blend/state/root motion is next.
+- Active PACT: PACT-50 blend/state/root motion; local gates green, CI pending.
 - Target branch: `main` until verified baseline push, then
   `feat/animgraph-runtime-0.1` from fetched `origin/main`.
 - Baseline/base revision: `e1b85fbef4d78720bfb1fe060866c435a5ed48f3`.
@@ -54,7 +54,9 @@
   27/27 tests, no-reuse output oracle, stable plan identity, cache invalidation and
   isolation, CMake/MSVC, and 9-source drift checks.
 - PACT-40 CI run `33883811272` passed MSVC, Clang, and GCC.
+- PACT-50 witnessed interface and interruption RED states, then passed 35/35 tests,
+  10/10 repeated executions, CMake/MSVC, and 12-source drift checks.
 
 ## Next atomic action
 
-Write PACT-50 blend, additive/layer, state transition, marker, event, and root RED tests.
+Commit/push PACT-50, require CI green, then add Two-Bone IK and batch RED tests.

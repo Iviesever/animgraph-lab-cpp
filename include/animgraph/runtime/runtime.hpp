@@ -26,13 +26,22 @@ struct PoseCacheState {
   std::uint64_t generation{};
   std::uint64_t parameter_hash{};
   LocalPose pose;
+  Transform root_motion{Transform::identity()};
+};
+
+struct RuntimeStateNode {
+  bool target_state{};
+  bool transitioning{};
+  AnimTime elapsed;
 };
 
 struct GraphInstance {
   std::vector<AnimTime> clip_times;
   std::vector<LocalPose> pose_slots;
+  std::vector<Transform> root_motion_slots;
   std::vector<std::uint8_t> initialized;
   std::vector<PoseCacheState> pose_caches;
+  std::vector<RuntimeStateNode> state_nodes;
   std::vector<std::byte> state;
   std::size_t joint_count{};
 };

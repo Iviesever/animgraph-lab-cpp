@@ -166,11 +166,11 @@ std::expected<EvaluationResult, Error> evaluate(const EvaluationContext&, const 
 validated `Blend1DSample`, `Blend2DSample`, `LayerMask`, `StateMachineDefinition`,
 `TransitionDefinition`, and `RootMotionDelta` value data executed by compiled nodes.
 
-- [ ] Add failing tests for sorted/clamped/exact/duplicate Blend1D, triangle weights and
+- [x] Add failing tests for sorted/clamped/exact/duplicate Blend1D, triangle weights and
   degenerate Blend2D, local additive rotations, hierarchy masks, transition priority,
   zero duration/interruption/exit time/marker sync, state events, and root seams/crossfades.
-- [ ] Witness RED and implement only the tested blend/state/root contracts.
-- [ ] Document crossfade event ownership and root-motion remove/retain policy in code
+- [x] Witness RED and implement only the tested blend/state/root contracts.
+- [x] Document crossfade event ownership and root-motion remove/retain policy in code
   contracts and trace fields.
 - [ ] Run all checks and stable event-order repetitions, update records, commit
   `feat: add blend state and root motion runtime`, push.

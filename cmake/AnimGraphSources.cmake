@@ -8,6 +8,9 @@ set(ANIMGRAPH_SOURCES
   src/compression/compression.cpp
   src/graph/graph.cpp
   src/runtime/runtime.cpp
+  src/runtime/blend.cpp
+  src/runtime/state_machine.cpp
+  src/runtime/root_motion.cpp
 )
 
 set(ANIMGRAPH_TEST_SOURCES
@@ -18,4 +21,5 @@ set(ANIMGRAPH_TEST_SOURCES
   tests/asset_tool_tests.cpp
   tests/compression_tests.cpp
   tests/graph_runtime_tests.cpp
+  tests/blend_state_root_tests.cpp
 )

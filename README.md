@@ -52,6 +52,9 @@ The runtime feature work is tracked under
   state layout, last-use pose-slot reuse, canonical plan JSON, and stable identity.
 - Per-character graph instances with compiled ReferencePose/ClipPlayer/PoseCache/
   Output execution, debug slot guards, cache invalidation, and instance isolation.
+- Blend1D/triangle Blend2D, local-reference additive poses, hierarchy-propagated
+  per-joint layers, deterministic state transitions/interruption, sync-marker time
+  mapping, and loop-safe root-motion deltas.
 
 ## License
 
