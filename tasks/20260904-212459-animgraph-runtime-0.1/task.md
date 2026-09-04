@@ -136,7 +136,7 @@ std::expected<CompressedClip, Error> compress_clip(const AnimationClip&, Compres
 - [x] Witness RED, then implement deterministic constant detection and linear key
   removal using positional, quaternion-angle, and scale error metrics.
 - [x] Verify every sampled error is within settings and output stable report bytes.
-- [ ] Run all regression/toolchain checks, save report, update records, commit
+- [x] Run all regression/toolchain checks, save report, update records, commit
   `feat: add deterministic clip compression`, push.
 
 ### Task 5: PACT-40 compiled graph and evaluator

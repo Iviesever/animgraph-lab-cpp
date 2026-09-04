@@ -2,12 +2,11 @@
 
 ## Current state
 
-- Active PACT: PACT-30 compression; local gates are green and cross-compiler CI is
-  pending.
+- Active PACT: PACT-30 compression is complete; PACT-40 graph compiler/runtime is next.
 - Target branch: `main` until verified baseline push, then
   `feat/animgraph-runtime-0.1` from fetched `origin/main`.
 - Baseline/base revision: `e1b85fbef4d78720bfb1fe060866c435a5ed48f3`.
-- Last-known-good revision: `b6b23dd15080281d7bad5627bcd137c05ac57994`.
+- Last-known-good revision: `2e2f916f48454ae7d3379b6515123414cb55c7ae`.
 
 ## Environment observations
 
@@ -49,7 +48,9 @@
 - PACT-30 witnessed missing-interface RED, then passed 22/22 tests and six required
   clip-shape oracle grids. Static compressed 704→64 bytes; long 16448→1136 bytes;
   reported maxima stayed within 0.02 position, 0.01 radian, and 0.01 scale limits.
+- PACT-30 CI run `33882978707` passed MSVC, Clang, and GCC after GCC's dangling
+  test-reference diagnostic was fixed without changing production code.
 
 ## Next atomic action
 
-Commit/push PACT-30, require MSVC/Clang/GCC CI green, then begin graph compiler tests.
+Write PACT-40 graph compiler, slot lifetime, identity, evaluator, and cache RED tests.
