@@ -87,14 +87,23 @@ Expected<Blend2DResult, Error> evaluate_blend_2d(
     const auto& first = samples[0].pose.transforms[joint];
     const auto& second = samples[1].pose.transforms[joint];
     const auto& third = samples[2].pose.transforms[joint];
-    Quat q1 = second.rotation, q2 = third.rotation;
-    if (dot(first.rotation, q1) < 0) q1 = {-q1.x, -q1.y, -q1.z, -q1.w};
-    if (dot(first.rotation, q2) < 0) q2 = {-q2.x, -q2.y, -q2.z, -q2.w};
+    const std::array source_rotations{first.rotation, second.rotation, third.rotation};
+    std::size_t reference_index = 0;
+    while (reference_index < weights.size() && weights[reference_index] <= 1.0e-8F)
+      ++reference_index;
+    if (reference_index == weights.size())
+      return make_unexpected(Error{ErrorCode::invalid_argument, "Blend2D has no weighted rotation"});
+    const Quat reference_rotation = source_rotations[reference_index];
+    std::array<Quat, 3> aligned = source_rotations;
+    for (auto& rotation : aligned) {
+      if (dot(reference_rotation, rotation) < 0)
+        rotation = {-rotation.x, -rotation.y, -rotation.z, -rotation.w};
+    }
     const auto rotation = normalize(Quat{
-        first.rotation.x * weights[0] + q1.x * weights[1] + q2.x * weights[2],
-        first.rotation.y * weights[0] + q1.y * weights[1] + q2.y * weights[2],
-        first.rotation.z * weights[0] + q1.z * weights[1] + q2.z * weights[2],
-        first.rotation.w * weights[0] + q1.w * weights[1] + q2.w * weights[2]});
+        aligned[0].x * weights[0] + aligned[1].x * weights[1] + aligned[2].x * weights[2],
+        aligned[0].y * weights[0] + aligned[1].y * weights[1] + aligned[2].y * weights[2],
+        aligned[0].z * weights[0] + aligned[1].z * weights[1] + aligned[2].z * weights[2],
+        aligned[0].w * weights[0] + aligned[1].w * weights[1] + aligned[2].w * weights[2]});
     if (!rotation) return make_unexpected(rotation.error());
     result.pose.transforms.push_back({
         first.translation * weights[0] + second.translation * weights[1] + third.translation * weights[2],

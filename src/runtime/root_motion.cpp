@@ -54,7 +54,9 @@ Expected<Transform, Error> extract_root_motion(
     const auto delta = segment_delta(skeleton, clip, root, normalized.local,
                                      AnimTime{normalized.local.ticks + advance});
     if (!delta) return make_unexpected(delta.error());
-    total = compose(total, *delta);
+    const auto accumulated = compose(total, *delta);
+    if (!accumulated) return make_unexpected(accumulated.error());
+    total = *accumulated;
     cursor += advance;
   }
   if (cursor != to.ticks)

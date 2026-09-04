@@ -57,11 +57,12 @@ ANIMGRAPH_TEST(transform_compose_and_inverse_restore_points) {
   AG_CHECK(rotation.has_value());
   const Transform parent{Vec3{2, 3, 4}, *rotation, Vec3{2, 2, 2}};
   const Transform child{Vec3{1, 0, 0}, Quat::identity(), Vec3{1, 1, 1}};
-  const Transform combined = compose(parent, child);
-  const auto restored = inverse(combined);
+  const auto combined = compose(parent, child);
+  AG_CHECK(combined.has_value());
+  const auto restored = inverse(*combined);
   AG_CHECK(restored.has_value());
   const Vec3 point{0.25F, -0.5F, 1.0F};
-  AG_CHECK(near(transform_point(*restored, transform_point(combined, point)), point));
+  AG_CHECK(near(transform_point(*restored, transform_point(*combined, point)), point));
 }
 
 ANIMGRAPH_TEST(skeleton_rejects_cycles_multiple_roots_and_non_finite_bind_data) {

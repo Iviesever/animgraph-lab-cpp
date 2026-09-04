@@ -48,6 +48,12 @@ struct AnimationEvent {
   std::int32_t payload{};
 };
 
+struct AnimationEventOccurrence {
+  AnimationEvent event;
+  AnimTime absolute_time;
+  std::int64_t cycle{};
+};
+
 struct SyncMarker {
   AnimTime time;
   std::string name;
@@ -77,5 +83,7 @@ struct SampleResult {
                                                         AnimTime time);
 [[nodiscard]] std::vector<AnimationEvent> query_events(const AnimationClip& clip,
                                                        AnimTime from, AnimTime to);
+[[nodiscard]] Expected<std::vector<AnimationEventOccurrence>, Error>
+query_event_occurrences(const AnimationClip& clip, AnimTime from, AnimTime to);
 
 }  // namespace animgraph

@@ -179,7 +179,6 @@ Expected<TraceDocument, Error> generate_demo_trace(
   trace.compression = demo.compression;
   trace.frames.reserve(frame_count);
   const std::array parameters{0.5F, -1.5F, 0.0F, 1.0F};
-  Transform accumulated = Transform::identity();
   for (std::size_t frame_index = 0; frame_index < frame_count; ++frame_index) {
     const EvaluationContext context{demo.skeleton, demo.clips, delta, parameters,
                                     frame_index + 1, 1};
@@ -190,41 +189,33 @@ Expected<TraceDocument, Error> generate_demo_trace(
     if (!evaluated) return make_unexpected(evaluated.error());
     const auto model = local_to_model(demo.skeleton, evaluated->pose);
     if (!model) return make_unexpected(model.error());
-    accumulated = compose(accumulated, evaluated->root_motion);
     TraceFrame frame;
     frame.index = static_cast<std::uint32_t>(frame_index);
     frame.time = AnimTime{static_cast<std::int64_t>((frame_index + 1) * delta.ticks)};
     frame.local_pose = evaluated->pose;
     frame.model_pose = *model;
-    frame.current_node = "Output";
-    frame.state = "Idle";
-    frame.blend_weights = {0.5F, 0.25F, 0.25F};
+    frame.current_node = evaluated->current_node;
+    frame.state = evaluated->state.empty() ? "None" : evaluated->state;
+    frame.transition = evaluated->transition_progress;
+    frame.blends = evaluated->blends;
+    if (!frame.blends.empty()) frame.blend_weights = frame.blends.back().weights;
     frame.pose_cache_hits = evaluated->pose_cache_hits;
     frame.pose_cache_misses = evaluated->pose_cache_misses;
     frame.root_motion = evaluated->root_motion;
-    frame.root_accumulated = accumulated;
+    frame.root_accumulated = evaluated->root_accumulated;
     frame.ik_applied = evaluated->ik_applied;
     frame.ik_target = evaluated->ik_target;
+    frame.ik_pole = evaluated->ik_pole;
     frame.ik_error = evaluated->ik_error;
     frame.evaluation_microseconds = microseconds;
     frame.success = true;
     for (const auto& event : evaluated->events) frame.events.push_back(event.name);
-    for (const auto& clip : demo.clips)
-      for (const auto& marker : clip.markers)
-        if (std::ranges::find(frame.sync_markers, marker.name) == frame.sync_markers.end())
-          frame.sync_markers.push_back(marker.name);
+    frame.sync_markers = evaluated->sync_markers;
     for (std::size_t index = 0; index < demo.graph.instructions.size(); ++index) {
       const auto& instruction = demo.graph.instructions[index];
       if (instruction.clip_index)
         frame.clip_times.push_back({instruction.name, demo.clips[*instruction.clip_index].name,
                                     instance->clip_times[index]});
-      if (instruction.type == NodeType::state_machine) {
-        const auto& state = instance->state_nodes[index];
-        frame.state = state.target_state ? "Locomotion" : "Idle";
-        frame.transition = state.transitioning
-            ? std::clamp(static_cast<float>(state.elapsed.ticks) / 12'000.0F, 0.0F, 1.0F)
-            : 1.0F;
-      }
     }
     trace.frames.push_back(std::move(frame));
   }
@@ -278,6 +269,17 @@ std::string trace_to_json(const TraceDocument& trace) {
       if (index) output << ',';
       output << frame.blend_weights[index];
     }
+    output << "],\"blend_nodes\":[";
+    for (std::size_t blend = 0; blend < frame.blends.size(); ++blend) {
+      if (blend) output << ',';
+      output << "{\"node\":" << frame.blends[blend].node.value << ",\"name\":\""
+             << escape_json(frame.blends[blend].name) << "\",\"weights\":[";
+      for (std::size_t weight = 0; weight < frame.blends[blend].weights.size(); ++weight) {
+        if (weight) output << ',';
+        output << frame.blends[blend].weights[weight];
+      }
+      output << "]}";
+    }
     output << "],\"pose_cache\":{\"hits\":" << frame.pose_cache_hits
            << ",\"misses\":" << frame.pose_cache_misses << "},\"events\":[";
     for (std::size_t index = 0; index < frame.events.size(); ++index) {
@@ -293,6 +295,7 @@ std::string trace_to_json(const TraceDocument& trace) {
     output << ",\"root_accumulated\":"; json_transform(output, frame.root_accumulated);
     output << ",\"ik\":{\"applied\":" << (frame.ik_applied ? "true" : "false")
            << ",\"target\":"; json_vec3(output, frame.ik_target);
+    output << ",\"pole\":"; json_vec3(output, frame.ik_pole);
     output << ",\"error\":" << frame.ik_error << "},\"evaluation_us\":"
            << frame.evaluation_microseconds << '}';
   }

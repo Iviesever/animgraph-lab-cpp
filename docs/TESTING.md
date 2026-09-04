@@ -1,6 +1,6 @@
 # Testing
 
-The dependency-free test runner reports 46 named unit/integration tests. Behavior
+The dependency-free test runner reports 56 named unit/integration tests. Behavior
 entered through witnessed missing-interface or regression RED states before GREEN.
 Core coverage includes math, Skeleton/Pose, time/sampling, events/markers, three
 asset formats, compression, compiler validation, slot reuse, all P0 node executions,

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <bit>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -190,6 +191,128 @@ bool magic_equals(std::span<const std::byte> bytes, const std::array<char, 8>& m
     if (std::to_integer<std::uint8_t>(bytes[index]) != static_cast<std::uint8_t>(magic[index])) return false;
   }
   return true;
+}
+
+class JsonSyntaxValidator {
+ public:
+  explicit JsonSyntaxValidator(std::string_view text) : text_(text) {}
+  bool valid() {
+    skip_space();
+    if (!value()) return false;
+    skip_space();
+    return cursor_ == text_.size();
+  }
+
+ private:
+  void skip_space() {
+    while (cursor_ < text_.size() && (text_[cursor_] == ' ' || text_[cursor_] == '\n' ||
+           text_[cursor_] == '\r' || text_[cursor_] == '\t')) ++cursor_;
+  }
+  bool consume(char value) {
+    skip_space();
+    if (cursor_ >= text_.size() || text_[cursor_] != value) return false;
+    ++cursor_;
+    return true;
+  }
+  bool literal(std::string_view value) {
+    if (text_.substr(cursor_, value.size()) != value) return false;
+    cursor_ += value.size();
+    return true;
+  }
+  bool string() {
+    if (!consume('"')) return false;
+    while (cursor_ < text_.size()) {
+      const char character = text_[cursor_++];
+      if (character == '"') return true;
+      if (static_cast<unsigned char>(character) < 0x20U) return false;
+      if (character == '\\') {
+        if (cursor_ >= text_.size()) return false;
+        const char escape = text_[cursor_++];
+        if (escape == 'u') {
+          for (int digit = 0; digit < 4; ++digit) {
+            if (cursor_ >= text_.size() || !std::isxdigit(
+                    static_cast<unsigned char>(text_[cursor_++]))) return false;
+          }
+        } else if (std::string_view{"\"\\/bfnrt"}.find(escape) == std::string_view::npos) {
+          return false;
+        }
+      }
+    }
+    return false;
+  }
+  bool number() {
+    const std::size_t start = cursor_;
+    if (cursor_ < text_.size() && text_[cursor_] == '-') ++cursor_;
+    if (cursor_ >= text_.size()) return false;
+    if (text_[cursor_] == '0') ++cursor_;
+    else {
+      if (text_[cursor_] < '1' || text_[cursor_] > '9') return false;
+      while (cursor_ < text_.size() && text_[cursor_] >= '0' && text_[cursor_] <= '9') ++cursor_;
+    }
+    if (cursor_ < text_.size() && text_[cursor_] == '.') {
+      ++cursor_;
+      const auto fraction = cursor_;
+      while (cursor_ < text_.size() && text_[cursor_] >= '0' && text_[cursor_] <= '9') ++cursor_;
+      if (fraction == cursor_) return false;
+    }
+    if (cursor_ < text_.size() && (text_[cursor_] == 'e' || text_[cursor_] == 'E')) {
+      ++cursor_;
+      if (cursor_ < text_.size() && (text_[cursor_] == '+' || text_[cursor_] == '-')) ++cursor_;
+      const auto exponent = cursor_;
+      while (cursor_ < text_.size() && text_[cursor_] >= '0' && text_[cursor_] <= '9') ++cursor_;
+      if (exponent == cursor_) return false;
+    }
+    return cursor_ > start;
+  }
+  bool array() {
+    if (!consume('[')) return false;
+    skip_space();
+    if (consume(']')) return true;
+    do {
+      if (!value()) return false;
+      skip_space();
+      if (consume(']')) return true;
+    } while (consume(','));
+    return false;
+  }
+  bool object() {
+    if (!consume('{')) return false;
+    skip_space();
+    if (consume('}')) return true;
+    do {
+      if (!string() || !consume(':') || !value()) return false;
+      skip_space();
+      if (consume('}')) return true;
+    } while (consume(','));
+    return false;
+  }
+  bool value() {
+    skip_space();
+    if (cursor_ >= text_.size()) return false;
+    switch (text_[cursor_]) {
+      case '{': return object();
+      case '[': return array();
+      case '"': return string();
+      case 't': return literal("true");
+      case 'f': return literal("false");
+      case 'n': return literal("null");
+      default: return number();
+    }
+  }
+  std::string_view text_;
+  std::size_t cursor_{};
+};
+
+bool valid_graph_plan_json(std::string_view plan, std::uint32_t node_count) {
+  if (!JsonSyntaxValidator{plan}.valid() || !plan.starts_with("{\"version\":") ||
+      plan.find("\"instructions\":[") == std::string_view::npos) return false;
+  std::size_t count = 0;
+  std::size_t cursor = 0;
+  while ((cursor = plan.find("{\"id\":", cursor)) != std::string_view::npos) {
+    ++count;
+    cursor += 6;
+  }
+  return count == node_count;
 }
 
 Expected<void, Error> basic_size(std::span<const std::byte> bytes, std::size_t header) {
@@ -509,7 +632,7 @@ Expected<std::string, Error> decode_graph_plan(std::span<const std::byte> bytes)
       return make_unexpected(Error{ErrorCode::invalid_format, "graph plan contains a null byte"});
     plan.push_back(character);
   }
-  if (plan.front() != '{' || plan.back() != '}')
+  if (!valid_graph_plan_json(plan, node_count))
     return make_unexpected(Error{ErrorCode::invalid_format, "graph plan is not canonical JSON"});
   return plan;
 }

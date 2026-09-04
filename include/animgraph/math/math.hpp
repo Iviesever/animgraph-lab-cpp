@@ -64,7 +64,8 @@ using Matrix4 = std::array<float, 16>;
 
 [[nodiscard]] bool finite(const Transform& value) noexcept;
 [[nodiscard]] Vec3 transform_point(const Transform& transform, Vec3 point) noexcept;
-[[nodiscard]] Transform compose(const Transform& parent, const Transform& child) noexcept;
+[[nodiscard]] Expected<Transform, Error> compose(const Transform& parent,
+                                                 const Transform& child) noexcept;
 [[nodiscard]] Expected<Transform, Error> inverse(const Transform& value) noexcept;
 [[nodiscard]] Matrix4 to_matrix(const Transform& value) noexcept;
 

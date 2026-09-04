@@ -9,7 +9,9 @@ Translation/scale errors are Euclidean distances; rotation error is quaternion
 angular distance. Reports contain raw/compressed keys and estimated bytes plus the
 three maxima per joint and globally. Raw and reduced clips are compared on uniform
 and deterministic random times for static, walk, rapid rotation, tiny motion, long,
-and nonuniform clips.
+and nonuniform clips. Rotation candidates additionally sample 32 interior points per
+original segment; if the continuous-path approximation exceeds tolerance, the
+original rotation keys are retained and the dense maximum is reported.
 
 This is explainable key reduction, not globally optimal compression. No entropy
 coding, SIMD, or 16-bit quantization is claimed. The committed report shows static

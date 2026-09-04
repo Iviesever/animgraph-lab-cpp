@@ -29,4 +29,5 @@ set(ANIMGRAPH_TEST_SOURCES
   tests/blend_state_root_tests.cpp
   tests/ik_batch_tests.cpp
   tests/trace_cli_tests.cpp
+  tests/audit_regression_tests.cpp
 )

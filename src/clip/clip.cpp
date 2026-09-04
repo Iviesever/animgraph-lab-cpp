@@ -164,15 +164,18 @@ Expected<SampleResult, Error> sample_clip(const CompiledSkeleton& skeleton,
   return result;
 }
 
-std::vector<AnimationEvent> query_events(const AnimationClip& clip, AnimTime from,
-                                        AnimTime to) {
-  std::vector<AnimationEvent> result;
-  if (!validate_clip(clip) || to.ticks <= from.ticks || clip.duration.ticks == 0) return result;
+Expected<std::vector<AnimationEventOccurrence>, Error> query_event_occurrences(
+    const AnimationClip& clip, AnimTime from, AnimTime to) {
+  std::vector<AnimationEventOccurrence> result;
+  const auto valid = validate_clip(clip);
+  if (!valid) return make_unexpected(valid.error());
+  if (to.ticks <= from.ticks || clip.duration.ticks == 0) return result;
   if (clip.mode != ClipPlaybackMode::loop) {
     const auto start = normalize_time(from, clip.duration, ClipPlaybackMode::clamp).value().local;
     const auto end = normalize_time(to, clip.duration, ClipPlaybackMode::clamp).value().local;
     for (const auto& event : clip.events) {
-      if (event.time > start && event.time <= end) result.push_back(event);
+      if (event.time > start && event.time <= end)
+        result.push_back(AnimationEventOccurrence{event, event.time, 0});
     }
     return result;
   }
@@ -184,13 +187,28 @@ std::vector<AnimationEvent> query_events(const AnimationClip& clip, AnimTime fro
   const std::int64_t bounded_last = std::min(last_cycle, first_cycle + 4096);
   for (std::int64_t cycle = first_cycle; cycle <= bounded_last; ++cycle) {
     for (const auto& event : clip.events) {
-      if (event.time.ticks > 0 && cycle > (std::numeric_limits<std::int64_t>::max() - event.time.ticks) /
-                                          clip.duration.ticks) continue;
-      const std::int64_t absolute = cycle * clip.duration.ticks + event.time.ticks;
-      if (absolute > from.ticks && absolute <= to.ticks) result.push_back(event);
+      const long double wide = static_cast<long double>(cycle) *
+          static_cast<long double>(clip.duration.ticks) + static_cast<long double>(event.time.ticks);
+      if (wide < static_cast<long double>(std::numeric_limits<std::int64_t>::min()) ||
+          wide > static_cast<long double>(std::numeric_limits<std::int64_t>::max())) {
+        return make_unexpected(Error{ErrorCode::bounds, "event occurrence time overflows"});
+      }
+      const auto absolute = static_cast<std::int64_t>(wide);
+      if (absolute > from.ticks && absolute <= to.ticks)
+        result.push_back(AnimationEventOccurrence{event, AnimTime{absolute}, cycle});
       if (result.size() >= max_events) return result;
     }
   }
+  return result;
+}
+
+std::vector<AnimationEvent> query_events(const AnimationClip& clip, AnimTime from,
+                                        AnimTime to) {
+  std::vector<AnimationEvent> result;
+  const auto occurrences = query_event_occurrences(clip, from, to);
+  if (!occurrences) return result;
+  result.reserve(occurrences->size());
+  for (const auto& occurrence : *occurrences) result.push_back(occurrence.event);
   return result;
 }
 

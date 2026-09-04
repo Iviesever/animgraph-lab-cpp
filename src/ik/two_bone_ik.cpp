@@ -52,6 +52,9 @@ Expected<IkResult, Error> solve_two_bone_ik(
   }
 
   const Vec3 target_offset = request.target_model - root_position;
+  if (!std::isfinite(length_squared(target_offset))) {
+    return make_unexpected(Error{ErrorCode::bounds, "IK target magnitude is not representable"});
+  }
   const float requested_distance = length(target_offset);
   const float minimum_distance = std::abs(first_length - second_length) + ik_epsilon;
   const float maximum_distance = first_length + second_length - ik_epsilon;
@@ -123,7 +126,11 @@ Expected<IkResult, Error> solve_two_bone_ik(
   const auto final_model = local_to_model(skeleton, pose);
   if (!final_model) return make_unexpected(final_model.error());
   const Vec3 achieved = final_model->transforms[request.end.value].translation;
-  return IkResult{status, achieved, length(request.target_model - achieved), bend,
+  const float target_error = length(request.target_model - achieved);
+  if (!finite(achieved) || !std::isfinite(target_error) || !std::isfinite(bend)) {
+    return make_unexpected(Error{ErrorCode::non_finite, "IK produced a non-finite result"});
+  }
+  return IkResult{status, achieved, target_error, bend,
                   pole_fallback};
 }
 

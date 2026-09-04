@@ -2,6 +2,7 @@
 
 #include "animgraph/core/expected.hpp"
 #include "animgraph/samples/procedural.hpp"
+#include "animgraph/runtime/runtime.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -21,6 +22,7 @@ struct TraceFrame {
   float transition{};
   std::vector<TraceClipTime> clip_times;
   std::vector<float> blend_weights;
+  std::vector<BlendObservation> blends;
   std::uint32_t pose_cache_hits{};
   std::uint32_t pose_cache_misses{};
   std::vector<std::string> events;
@@ -29,6 +31,7 @@ struct TraceFrame {
   Transform root_accumulated{Transform::identity()};
   bool ik_applied{};
   Vec3 ik_target{};
+  Vec3 ik_pole{};
   float ik_error{};
   double evaluation_microseconds{};
   bool success{};

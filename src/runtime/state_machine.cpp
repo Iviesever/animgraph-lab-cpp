@@ -113,6 +113,7 @@ Expected<StateMachineUpdate, Error> update_state_machine(
     return update;
   }
 
+  const std::int64_t previous_state_time = instance.state_time.ticks;
   instance.state_time.ticks += delta.ticks;
   const auto* current = find_state(definition, instance.current);
   const TransitionDefinition* selected = nullptr;
@@ -121,10 +122,14 @@ Expected<StateMachineUpdate, Error> update_state_machine(
         !std::isfinite(parameters[transition.condition.parameter]) ||
         !matches(parameters[transition.condition.parameter], transition.condition)) continue;
     if (transition.exit_time_normalized) {
-      const float phase = current->duration.ticks == 0 ? 1.0F :
-          static_cast<float>(instance.state_time.ticks % std::max<std::int64_t>(1, current->duration.ticks)) /
-          static_cast<float>(std::max<std::int64_t>(1, current->duration.ticks));
-      if (phase < *transition.exit_time_normalized) continue;
+      if (current->duration.ticks > 0) {
+        const auto duration = current->duration.ticks;
+        const auto threshold = static_cast<std::int64_t>(
+            std::llround(*transition.exit_time_normalized * static_cast<float>(duration)));
+        std::int64_t crossing = (previous_state_time / duration) * duration + threshold;
+        if (crossing <= previous_state_time) crossing += duration;
+        if (crossing > instance.state_time.ticks) continue;
+      }
     }
     if (!selected || transition.priority > selected->priority ||
         (transition.priority == selected->priority && transition.target.value < selected->target.value)) {

@@ -28,21 +28,44 @@ void copy_pose(LocalPose& destination, const LocalPose& source) {
   destination.transforms = source.transforms;
 }
 
-Expected<void, Error> validate_instance(const CompiledGraph& graph,
-                                        const GraphInstance& instance) {
-  if (instance.pose_slots.size() != graph.pose_slot_count ||
-      instance.initialized.size() != graph.pose_slot_count ||
-      instance.root_motion_slots.size() != graph.pose_slot_count ||
-      instance.clip_times.size() != graph.instructions.size() ||
-      instance.pose_caches.size() != graph.instructions.size() ||
-      instance.state_nodes.size() != graph.instructions.size() ||
-      instance.state.size() != graph.state_size) {
-    return make_unexpected(Error{ErrorCode::size_mismatch, "graph instance layout mismatch"});
-  }
-  return {};
+void append_events(std::vector<RuntimeEventOccurrence>& destination,
+                   const std::vector<RuntimeEventOccurrence>& source) {
+  destination.insert(destination.end(), source.begin(), source.end());
 }
 
 }  // namespace
+
+Expected<void, Error> validate_instance_layout(const CompiledGraph& graph,
+                                               const GraphInstance& instance,
+                                               std::size_t joint_count) {
+  if (instance.pose_slots.size() != graph.pose_slot_count ||
+      instance.initialized.size() != graph.pose_slot_count ||
+      instance.root_motion_slots.size() != graph.pose_slot_count ||
+      instance.event_slots.size() != graph.pose_slot_count ||
+      instance.clip_times.size() != graph.instructions.size() ||
+      instance.pose_caches.size() != graph.instructions.size() ||
+      instance.state_nodes.size() != graph.instructions.size() ||
+      instance.state.size() != graph.state_size || instance.joint_count != joint_count ||
+      graph.output_slot.value >= graph.pose_slot_count) {
+    return make_unexpected(Error{ErrorCode::size_mismatch, "graph instance layout mismatch"});
+  }
+  for (const auto& pose : instance.pose_slots) {
+    if (pose.transforms.size() != joint_count)
+      return make_unexpected(Error{ErrorCode::size_mismatch, "pose slot joint count mismatch"});
+  }
+  for (const auto& cache : instance.pose_caches) {
+    if (cache.pose.transforms.size() != joint_count)
+      return make_unexpected(Error{ErrorCode::size_mismatch, "pose cache joint count mismatch"});
+  }
+  for (const auto& instruction : graph.instructions) {
+    if (instruction.output.value >= graph.pose_slot_count)
+      return make_unexpected(Error{ErrorCode::graph, "compiled output slot is invalid"});
+    for (const auto input : instruction.inputs)
+      if (input.value >= graph.pose_slot_count)
+        return make_unexpected(Error{ErrorCode::graph, "compiled input slot is invalid"});
+  }
+  return {};
+}
 
 Expected<GraphInstance, Error> make_graph_instance(const CompiledGraph& graph,
                                                    std::size_t joint_count) {
@@ -54,19 +77,22 @@ Expected<GraphInstance, Error> make_graph_instance(const CompiledGraph& graph,
   instance.clip_times.resize(graph.instructions.size());
   instance.pose_slots.resize(graph.pose_slot_count);
   instance.root_motion_slots.resize(graph.pose_slot_count, Transform::identity());
+  instance.event_slots.resize(graph.pose_slot_count);
   instance.initialized.resize(graph.pose_slot_count);
   instance.pose_caches.resize(graph.instructions.size());
   instance.state_nodes.resize(graph.instructions.size());
   instance.state.resize(graph.state_size);
   for (auto& pose : instance.pose_slots) pose.transforms.resize(joint_count);
   for (auto& cache : instance.pose_caches) cache.pose.transforms.resize(joint_count);
+  for (auto& events : instance.event_slots) events.reserve(max_events);
   return instance;
 }
 
 Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
                                            const CompiledGraph& graph,
                                            GraphInstance& instance) {
-  const auto instance_valid = validate_instance(graph, instance);
+  const auto instance_valid = validate_instance_layout(graph, instance,
+                                                       context.skeleton.joints.size());
   if (!instance_valid) return make_unexpected(instance_valid.error());
   if (context.skeleton.joints.size() != instance.joint_count ||
       context.parameters.size() != graph.parameters.size()) {
@@ -75,10 +101,21 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
   for (const float value : context.parameters) {
     if (!std::isfinite(value)) return make_unexpected(Error{ErrorCode::non_finite, "parameter is not finite"});
   }
+  const std::uint64_t parameters = parameter_hash(context.parameters);
+  const auto cache_count = static_cast<std::uint32_t>(std::ranges::count(
+      graph.instructions, NodeType::pose_cache, &CompiledInstruction::type));
+  if (cache_count > 0 && instance.memo && instance.memo_frame == context.frame &&
+      instance.memo_generation == context.generation && instance.memo_parameter_hash == parameters) {
+    EvaluationResult cached = *instance.memo;
+    cached.pose_cache_hits = cache_count;
+    cached.pose_cache_misses = 0;
+    return cached;
+  }
   std::ranges::fill(instance.initialized, std::uint8_t{0});
+  for (auto& events : instance.event_slots) events.clear();
   EvaluationResult result;
   result.events.reserve(max_events);
-  const std::uint64_t parameters = parameter_hash(context.parameters);
+  result.event_occurrences.reserve(max_events);
   const auto parameter = [&context](std::size_t index, float fallback) {
     return index < context.parameters.size() ? context.parameters[index] : fallback;
   };
@@ -94,7 +131,10 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
       }
     }
     auto& output = instance.pose_slots[instruction.output.value];
+    auto& output_events = instance.event_slots[instruction.output.value];
+    output_events.clear();
     Transform root_output = Transform::identity();
+    result.current_node = instruction.name;
     switch (instruction.type) {
       case NodeType::reference_pose:
         for (std::size_t joint = 0; joint < context.skeleton.joints.size(); ++joint) {
@@ -123,9 +163,24 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
           if (!motion) return make_unexpected(motion.error());
           root_output = *motion;
         }
-        auto events = query_events(context.clips[*instruction.clip_index], previous,
-                                   instance.clip_times[index]);
-        result.events.insert(result.events.end(), events.begin(), events.end());
+        const auto occurrences = query_event_occurrences(
+            context.clips[*instruction.clip_index], previous, instance.clip_times[index]);
+        if (!occurrences) return make_unexpected(occurrences.error());
+        for (const auto& occurrence : *occurrences) {
+          output_events.push_back(RuntimeEventOccurrence{occurrence.event,
+              occurrence.absolute_time, occurrence.cycle, instruction.node,
+              *instruction.clip_index});
+        }
+        AnimationClip marker_clip = context.clips[*instruction.clip_index];
+        marker_clip.events.clear();
+        for (const auto& marker : marker_clip.markers)
+          marker_clip.events.push_back(AnimationEvent{marker.time, marker.name, 0});
+        const auto marker_occurrences = query_event_occurrences(
+            marker_clip, previous, instance.clip_times[index]);
+        if (marker_occurrences) {
+          for (const auto& occurrence : *marker_occurrences)
+            result.sync_markers.push_back(occurrence.event.name);
+        }
         break;
       }
       case NodeType::blend_1d: {
@@ -136,6 +191,12 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         const auto blended = evaluate_blend_1d(samples, weight);
         if (!blended) return make_unexpected(blended.error());
         copy_pose(output, *blended);
+        if (weight < 1.0F) append_events(output_events,
+            instance.event_slots[instruction.inputs[0].value]);
+        if (weight > 0.0F) append_events(output_events,
+            instance.event_slots[instruction.inputs[1].value]);
+        result.blends.push_back(BlendObservation{instruction.node, instruction.name,
+                                                 {1.0F - weight, weight}});
         root_output = blend_root_motion(instance.root_motion_slots[instruction.inputs[0].value],
                                         instance.root_motion_slots[instruction.inputs[1].value], weight);
         break;
@@ -148,6 +209,11 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         const auto blended = evaluate_blend_2d(samples, Vec2{parameter(0, 0.0F), parameter(1, 0.0F)});
         if (!blended) return make_unexpected(blended.error());
         copy_pose(output, blended->pose);
+        for (std::size_t input = 0; input < 3; ++input)
+          if (blended->weights[input] > 0.0F)
+            append_events(output_events, instance.event_slots[instruction.inputs[input].value]);
+        result.blends.push_back(BlendObservation{instruction.node, instruction.name,
+            {blended->weights[0], blended->weights[1], blended->weights[2]}});
         const Transform first = blend_root_motion(
             instance.root_motion_slots[instruction.inputs[0].value],
             instance.root_motion_slots[instruction.inputs[1].value],
@@ -160,11 +226,17 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         LocalPose reference;
         reference.transforms.reserve(context.skeleton.joints.size());
         for (const auto& joint : context.skeleton.joints) reference.transforms.push_back(joint.reference_local);
+        const float weight = std::clamp(parameter(0, 1.0F), 0.0F, 1.0F);
         const auto added = additive_pose(instance.pose_slots[instruction.inputs[0].value],
                                          instance.pose_slots[instruction.inputs[1].value], reference,
-                                         std::clamp(parameter(0, 1.0F), 0.0F, 1.0F));
+                                         weight);
         if (!added) return make_unexpected(added.error());
         copy_pose(output, *added);
+        append_events(output_events, instance.event_slots[instruction.inputs[0].value]);
+        if (weight > 0.0F)
+          append_events(output_events, instance.event_slots[instruction.inputs[1].value]);
+        result.blends.push_back(BlendObservation{instruction.node, instruction.name,
+                                                 {1.0F, weight}});
         root_output = instance.root_motion_slots[instruction.inputs[0].value];
         break;
       }
@@ -175,6 +247,11 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
                                            instance.pose_slots[instruction.inputs[1].value], weights);
         if (!layered) return make_unexpected(layered.error());
         copy_pose(output, *layered);
+        append_events(output_events, instance.event_slots[instruction.inputs[0].value]);
+        if (weight > 0.0F)
+          append_events(output_events, instance.event_slots[instruction.inputs[1].value]);
+        result.blends.push_back(BlendObservation{instruction.node, instruction.name,
+                                                 {1.0F - weight, weight}});
         root_output = blend_root_motion(instance.root_motion_slots[instruction.inputs[0].value],
                                         instance.root_motion_slots[instruction.inputs[1].value], weight);
         break;
@@ -184,6 +261,7 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
           return make_unexpected(Error{ErrorCode::bounds, "TwoBoneIK requires at least three joints"});
         }
         copy_pose(output, instance.pose_slots[instruction.inputs[0].value]);
+        append_events(output_events, instance.event_slots[instruction.inputs[0].value]);
         const Vec3 target{parameter(0, 0.0F), parameter(1, 0.0F), parameter(2, 0.0F)};
         const auto solved = solve_two_bone_ik(context.skeleton, output,
             TwoBoneIkRequest{JointId{0}, JointId{1}, JointId{2}, target,
@@ -192,6 +270,7 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         if (!solved) return make_unexpected(solved.error());
         result.ik_applied = true;
         result.ik_target = target;
+        result.ik_pole = Vec3{0, 0, 1};
         result.ik_error = solved->target_error;
         root_output = instance.root_motion_slots[instruction.inputs[0].value];
         break;
@@ -201,11 +280,14 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         if (cache.valid && cache.frame == context.frame && cache.generation == context.generation &&
             cache.parameter_hash == parameters) {
           copy_pose(output, cache.pose);
+          output_events = cache.events;
           root_output = cache.root_motion;
           ++result.pose_cache_hits;
         } else {
           copy_pose(output, instance.pose_slots[instruction.inputs[0].value]);
           copy_pose(cache.pose, output);
+          append_events(output_events, instance.event_slots[instruction.inputs[0].value]);
+          cache.events = output_events;
           root_output = instance.root_motion_slots[instruction.inputs[0].value];
           cache.root_motion = root_output;
           cache.valid = true;
@@ -236,12 +318,23 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
                                          instance.pose_slots[instruction.inputs[1].value], weight);
         if (!blended) return make_unexpected(blended.error());
         copy_pose(output, *blended);
+        if (weight < 1.0F)
+          append_events(output_events, instance.event_slots[instruction.inputs[0].value]);
+        if (weight > 0.0F)
+          append_events(output_events, instance.event_slots[instruction.inputs[1].value]);
+        result.state = state.target_state ? "Locomotion" : "Idle";
+        result.transition_progress = state.transitioning
+            ? std::clamp(static_cast<float>(state.elapsed.ticks) / 12'000.0F, 0.0F, 1.0F)
+            : 1.0F;
+        result.blends.push_back(BlendObservation{instruction.node, instruction.name,
+                                                 {1.0F - weight, weight}});
         root_output = blend_root_motion(instance.root_motion_slots[instruction.inputs[0].value],
                                         instance.root_motion_slots[instruction.inputs[1].value], weight);
         break;
       }
       case NodeType::output:
         copy_pose(output, instance.pose_slots[instruction.inputs[0].value]);
+        append_events(output_events, instance.event_slots[instruction.inputs[0].value]);
         root_output = instance.root_motion_slots[instruction.inputs[0].value];
         break;
       default:
@@ -252,16 +345,17 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
   }
   copy_pose(result.pose, instance.pose_slots[graph.output_slot.value]);
   result.root_motion = instance.root_motion_slots[graph.output_slot.value];
-  std::vector<AnimationEvent> unique_events;
-  unique_events.reserve(result.events.size());
-  for (const auto& event : result.events) {
-    const auto duplicate = std::ranges::find_if(unique_events, [&event](const AnimationEvent& existing) {
-      return std::tie(existing.time.ticks, existing.name, existing.payload) ==
-             std::tie(event.time.ticks, event.name, event.payload);
-    });
-    if (duplicate == unique_events.end()) unique_events.push_back(event);
-  }
-  result.events = std::move(unique_events);
+  result.event_occurrences = instance.event_slots[graph.output_slot.value];
+  for (const auto& occurrence : result.event_occurrences)
+    result.events.push_back(occurrence.event);
+  const auto accumulated = compose(instance.root_motion_accumulator, result.root_motion);
+  if (!accumulated) return make_unexpected(accumulated.error());
+  instance.root_motion_accumulator = *accumulated;
+  result.root_accumulated = instance.root_motion_accumulator;
+  instance.memo = result;
+  instance.memo_frame = context.frame;
+  instance.memo_generation = context.generation;
+  instance.memo_parameter_hash = parameters;
   return result;
 }
 

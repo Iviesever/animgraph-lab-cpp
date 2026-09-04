@@ -87,6 +87,22 @@ Quat sample_reduced(const std::vector<QuatKey>& keys, AnimTime time) {
   return slerp(lower->value, upper->value, alpha);
 }
 
+float rotation_path_error(const std::vector<QuatKey>& original,
+                          const std::vector<QuatKey>& reduced) {
+  if (original.empty() || reduced.empty()) return 0.0F;
+  float maximum = 0.0F;
+  for (std::size_t segment = 1; segment < original.size(); ++segment) {
+    const auto start = original[segment - 1].time.ticks;
+    const auto finish = original[segment].time.ticks;
+    for (std::int64_t step = 0; step <= 32; ++step) {
+      const auto tick = start + ((finish - start) * step) / 32;
+      maximum = std::max(maximum, angular_distance(
+          sample_reduced(original, AnimTime{tick}), sample_reduced(reduced, AnimTime{tick})));
+    }
+  }
+  return maximum;
+}
+
 bool valid_settings(const CompressionSettings& settings) {
   return std::isfinite(settings.translation_error) && settings.translation_error >= 0.0F &&
          std::isfinite(settings.rotation_radians_error) && settings.rotation_radians_error >= 0.0F &&
@@ -119,6 +135,10 @@ Expected<CompressedClip, Error> compress_clip(const AnimationClip& source,
                                        vec_error, interpolate_vec);
     reduced.rotations = reduce_keys(original.rotations, settings.rotation_radians_error,
                                     quat_error, [](Quat a, Quat b, float t) { return slerp(a, b, t); });
+    if (rotation_path_error(original.rotations, reduced.rotations) >
+        settings.rotation_radians_error) {
+      reduced.rotations = original.rotations;
+    }
     reduced.scales = reduce_keys(original.scales, settings.scale_error, vec_error, interpolate_vec);
 
     TrackCompressionReport track_report;
@@ -133,10 +153,7 @@ Expected<CompressedClip, Error> compress_clip(const AnimationClip& source,
       track_report.max_translation_error = std::max(
           track_report.max_translation_error, vec_error(key.value, sample_reduced(reduced.translations, key.time)));
     }
-    for (const auto& key : original.rotations) {
-      track_report.max_rotation_error = std::max(
-          track_report.max_rotation_error, quat_error(key.value, sample_reduced(reduced.rotations, key.time)));
-    }
+    track_report.max_rotation_error = rotation_path_error(original.rotations, reduced.rotations);
     for (const auto& key : original.scales) {
       track_report.max_scale_error = std::max(
           track_report.max_scale_error, vec_error(key.value, sample_reduced(reduced.scales, key.time)));

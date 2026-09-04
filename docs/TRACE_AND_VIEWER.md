@@ -3,7 +3,9 @@
 `generate_demo_trace` evaluates the real compiled graph and records each frame's
 local/model poses, current node/state/transition, clip clocks, blend weights, cache
 hits/misses, events, available sync markers, root delta/accumulation, IK target/error,
-compression summary, evaluation microseconds, versions, Git SHA, and success.
+compression summary, evaluation microseconds, versions, Git SHA, and success. Node,
+blend weights, state/transition, crossed markers, Root accumulator, and IK data are
+produced by `evaluate` and copied by Trace rather than reconstructed there.
 Timing and machine observations never enter asset or graph identity. Allocation
 count is `null` because no reliable allocator hook is claimed.
 

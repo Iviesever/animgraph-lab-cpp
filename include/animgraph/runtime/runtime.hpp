@@ -7,7 +7,9 @@
 #include "animgraph/skeleton/skeleton.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace animgraph {
@@ -21,6 +23,39 @@ struct EvaluationContext {
   std::uint64_t generation{};
 };
 
+struct RuntimeEventOccurrence {
+  AnimationEvent event;
+  AnimTime absolute_time;
+  std::int64_t cycle{};
+  NodeId source_node;
+  std::size_t clip_index{};
+};
+
+struct BlendObservation {
+  NodeId node;
+  std::string name;
+  std::vector<float> weights;
+};
+
+struct EvaluationResult {
+  LocalPose pose;
+  std::vector<AnimationEvent> events;
+  std::vector<RuntimeEventOccurrence> event_occurrences;
+  Transform root_motion{Transform::identity()};
+  Transform root_accumulated{Transform::identity()};
+  std::uint32_t pose_cache_hits{};
+  std::uint32_t pose_cache_misses{};
+  std::string current_node;
+  std::string state;
+  float transition_progress{};
+  std::vector<BlendObservation> blends;
+  std::vector<std::string> sync_markers;
+  bool ik_applied{};
+  Vec3 ik_target{};
+  Vec3 ik_pole{};
+  float ik_error{};
+};
+
 struct PoseCacheState {
   bool valid{};
   std::uint64_t frame{};
@@ -28,6 +63,7 @@ struct PoseCacheState {
   std::uint64_t parameter_hash{};
   LocalPose pose;
   Transform root_motion{Transform::identity()};
+  std::vector<RuntimeEventOccurrence> events;
 };
 
 struct RuntimeStateNode {
@@ -40,26 +76,24 @@ struct GraphInstance {
   std::vector<AnimTime> clip_times;
   std::vector<LocalPose> pose_slots;
   std::vector<Transform> root_motion_slots;
+  std::vector<std::vector<RuntimeEventOccurrence>> event_slots;
   std::vector<std::uint8_t> initialized;
   std::vector<PoseCacheState> pose_caches;
   std::vector<RuntimeStateNode> state_nodes;
   std::vector<std::byte> state;
+  Transform root_motion_accumulator{Transform::identity()};
+  std::optional<EvaluationResult> memo;
+  std::uint64_t memo_frame{};
+  std::uint64_t memo_generation{};
+  std::uint64_t memo_parameter_hash{};
   std::size_t joint_count{};
-};
-
-struct EvaluationResult {
-  LocalPose pose;
-  std::vector<AnimationEvent> events;
-  Transform root_motion{Transform::identity()};
-  std::uint32_t pose_cache_hits{};
-  std::uint32_t pose_cache_misses{};
-  bool ik_applied{};
-  Vec3 ik_target{};
-  float ik_error{};
 };
 
 [[nodiscard]] Expected<GraphInstance, Error> make_graph_instance(
     const CompiledGraph& graph, std::size_t joint_count);
+[[nodiscard]] Expected<void, Error> validate_instance_layout(
+    const CompiledGraph& graph, const GraphInstance& instance,
+    std::size_t joint_count);
 [[nodiscard]] Expected<EvaluationResult, Error> evaluate(
     const EvaluationContext& context, const CompiledGraph& graph,
     GraphInstance& instance);

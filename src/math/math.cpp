@@ -9,6 +9,15 @@ namespace {
 
 constexpr float epsilon = 1.0e-8F;
 
+bool uniform_scale(Vec3 value) noexcept {
+  return std::abs(value.x - value.y) <= 1.0e-6F &&
+         std::abs(value.x - value.z) <= 1.0e-6F;
+}
+
+bool identity_rotation(Quat value) noexcept {
+  return angular_distance(value, Quat::identity()) <= 1.0e-6F;
+}
+
 Quat normalized_or_identity(Quat value) noexcept {
   const auto result = normalize(value);
   return result ? *result : Quat::identity();
@@ -149,15 +158,27 @@ bool finite(const Transform& value) noexcept {
 Vec3 transform_point(const Transform& transform, Vec3 point) noexcept {
   return transform.translation + rotate(transform.rotation, hadamard(transform.scale, point));
 }
-Transform compose(const Transform& parent, const Transform& child) noexcept {
-  return {transform_point(parent, child.translation),
-          normalized_or_identity(multiply(parent.rotation, child.rotation)),
-          hadamard(parent.scale, child.scale)};
+Expected<Transform, Error> compose(const Transform& parent,
+                                   const Transform& child) noexcept {
+  if (!finite(parent) || !finite(child)) {
+    return make_unexpected(Error{ErrorCode::non_finite, "transform composition input is not finite"});
+  }
+  if (!uniform_scale(parent.scale) && !identity_rotation(child.rotation)) {
+    return make_unexpected(Error{ErrorCode::unsupported,
+                                 "non-uniform parent scale plus child rotation requires shear"});
+  }
+  return Transform{transform_point(parent, child.translation),
+                   normalized_or_identity(multiply(parent.rotation, child.rotation)),
+                   hadamard(parent.scale, child.scale)};
 }
 Expected<Transform, Error> inverse(const Transform& value) noexcept {
   if (!finite(value) || std::abs(value.scale.x) <= epsilon ||
       std::abs(value.scale.y) <= epsilon || std::abs(value.scale.z) <= epsilon) {
     return make_unexpected(Error{ErrorCode::invalid_argument, "transform cannot be inverted"});
+  }
+  if (!uniform_scale(value.scale) && !identity_rotation(value.rotation)) {
+    return make_unexpected(Error{ErrorCode::unsupported,
+                                 "non-uniform rotated TRS inverse requires shear"});
   }
   const auto inverse_rotation = inverse(value.rotation);
   if (!inverse_rotation) return make_unexpected(inverse_rotation.error());

@@ -116,8 +116,13 @@ Expected<ModelPose, Error> local_to_model(const CompiledSkeleton& skeleton,
       return make_unexpected(Error{ErrorCode::non_finite, "local pose contains invalid transform"});
     }
     const auto parent = skeleton.joints[index].parent;
-    model.transforms[index] = parent ? compose(model.transforms[parent->value], local.transforms[index])
-                                     : local.transforms[index];
+    if (parent) {
+      const auto composed = compose(model.transforms[parent->value], local.transforms[index]);
+      if (!composed) return make_unexpected(composed.error());
+      model.transforms[index] = *composed;
+    } else {
+      model.transforms[index] = local.transforms[index];
+    }
   }
   return model;
 }
@@ -133,8 +138,9 @@ Expected<SkinMatrixPalette, Error> model_to_skin(const CompiledSkeleton& skeleto
     if (!finite(model.transforms[index])) {
       return make_unexpected(Error{ErrorCode::non_finite, "model pose contains invalid transform"});
     }
-    palette.matrices.push_back(to_matrix(compose(model.transforms[index],
-                                                 skeleton.joints[index].inverse_bind)));
+    const auto skinned = compose(model.transforms[index], skeleton.joints[index].inverse_bind);
+    if (!skinned) return make_unexpected(skinned.error());
+    palette.matrices.push_back(to_matrix(*skinned));
   }
   return palette;
 }
