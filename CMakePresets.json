@@ -45,6 +45,17 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_CXX_COMPILER": "g++"
       }
+    },
+    {
+      "name": "ninja-clang-asan",
+      "displayName": "Clang ASan + UBSan",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "ANIMGRAPH_ENABLE_SANITIZERS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -67,6 +78,11 @@
       "name": "ninja-gcc-debug",
       "configurePreset": "ninja-gcc-debug",
       "jobs": 4
+    },
+    {
+      "name": "ninja-clang-asan",
+      "configurePreset": "ninja-clang-asan",
+      "jobs": 4
     }
   ],
   "testPresets": [
@@ -88,6 +104,11 @@
     {
       "name": "ninja-gcc-debug",
       "configurePreset": "ninja-gcc-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "ninja-clang-asan",
+      "configurePreset": "ninja-clang-asan",
       "output": { "outputOnFailure": true }
     }
   ]

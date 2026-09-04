@@ -13,6 +13,7 @@ namespace {
 
 constexpr std::array<char, 8> skeleton_magic{'A', 'G', 'S', 'K', 'E', 'L', '1', '\0'};
 constexpr std::array<char, 8> clip_magic{'A', 'G', 'C', 'L', 'I', 'P', '1', '\0'};
+constexpr std::array<char, 8> graph_magic{'A', 'G', 'G', 'R', 'A', 'P', 'H', '1'};
 constexpr std::uint16_t little_endian_marker = 0xFEFF;
 constexpr std::uint32_t skeleton_header_size = 40;
 constexpr std::uint32_t skeleton_record_size = 104;
@@ -24,6 +25,8 @@ constexpr std::uint32_t vec3_key_size = 20;
 constexpr std::uint32_t quat_key_size = 24;
 constexpr std::size_t skeleton_crc_offset = 36;
 constexpr std::size_t clip_crc_offset = 76;
+constexpr std::uint32_t graph_header_size = 36;
+constexpr std::size_t graph_crc_offset = 32;
 
 class Writer {
  public:
@@ -460,6 +463,57 @@ Expected<AnimationClip, Error> decode_clip(std::span<const std::byte> bytes) {
   return clip;
 }
 
+Expected<std::vector<std::byte>, Error> encode_graph_plan(const CompiledGraph& graph) {
+  const std::string plan = canonical_plan_json(graph);
+  if (plan.empty() || plan.size() > max_asset_bytes - graph_header_size ||
+      graph.instructions.empty() || graph.instructions.size() > max_graph_nodes) {
+    return make_unexpected(Error{ErrorCode::bounds, "graph plan exceeds asset limits"});
+  }
+  Writer writer;
+  writer.magic(graph_magic);
+  writer.u16(graph_asset_version); writer.u16(little_endian_marker);
+  writer.u32(graph_header_size); writer.u32(0); writer.u32(graph_header_size);
+  writer.u32(static_cast<std::uint32_t>(plan.size()));
+  writer.u32(static_cast<std::uint32_t>(graph.instructions.size())); writer.u32(0);
+  writer.string(plan);
+  const auto file_size = narrow_u32(writer.size());
+  if (!file_size) return make_unexpected(file_size.error());
+  writer.patch_u32(16, *file_size);
+  writer.patch_u32(32, crc32(writer.data(), graph_crc_offset));
+  return std::move(writer).take();
+}
+
+Expected<std::string, Error> decode_graph_plan(std::span<const std::byte> bytes) {
+  const auto sized = basic_size(bytes, graph_header_size);
+  if (!sized || !magic_equals(bytes, graph_magic))
+    return make_unexpected(Error{ErrorCode::invalid_format, "invalid graph asset header"});
+  Reader header(bytes, 8);
+  const auto version = header.u16(); const auto endian = header.u16();
+  const auto header_size = header.u32(); const auto file_size = header.u32();
+  const auto payload_offset = header.u32(); const auto payload_size = header.u32();
+  const auto node_count = header.u32(); const auto stored_crc = header.u32();
+  if (!header.ok() || version != graph_asset_version || endian != little_endian_marker ||
+      header_size != graph_header_size || file_size != bytes.size() ||
+      payload_offset != graph_header_size || payload_size == 0 ||
+      node_count == 0 || node_count > max_graph_nodes ||
+      !region(payload_offset, payload_size, 1, bytes.size()) ||
+      payload_offset + payload_size != bytes.size() ||
+      crc32(bytes, graph_crc_offset) != stored_crc) {
+    return make_unexpected(Error{ErrorCode::invalid_format, "graph asset bounds or integrity failure"});
+  }
+  std::string plan;
+  plan.reserve(payload_size);
+  for (std::size_t index = 0; index < payload_size; ++index) {
+    const char character = static_cast<char>(std::to_integer<std::uint8_t>(bytes[payload_offset + index]));
+    if (character == '\0')
+      return make_unexpected(Error{ErrorCode::invalid_format, "graph plan contains a null byte"});
+    plan.push_back(character);
+  }
+  if (plan.front() != '{' || plan.back() != '}')
+    return make_unexpected(Error{ErrorCode::invalid_format, "graph plan is not canonical JSON"});
+  return plan;
+}
+
 Expected<AssetSummary, Error> inspect_asset(std::span<const std::byte> bytes) {
   if (magic_equals(bytes, skeleton_magic)) {
     const auto decoded = decode_skeleton(bytes);
@@ -472,6 +526,13 @@ Expected<AssetSummary, Error> inspect_asset(std::span<const std::byte> bytes) {
     if (!decoded) return make_unexpected(decoded.error());
     return AssetSummary{AssetKind::clip, clip_asset_version,
                         static_cast<std::uint32_t>(decoded->tracks.size()), bytes.size()};
+  }
+  if (magic_equals(bytes, graph_magic)) {
+    const auto decoded = decode_graph_plan(bytes);
+    if (!decoded) return make_unexpected(decoded.error());
+    Reader header(bytes, 28);
+    const auto node_count = header.u32();
+    return AssetSummary{AssetKind::graph, graph_asset_version, node_count, bytes.size()};
   }
   return make_unexpected(Error{ErrorCode::invalid_format, "unknown asset magic"});
 }

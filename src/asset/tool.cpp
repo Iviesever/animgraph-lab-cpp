@@ -108,7 +108,9 @@ int run_asset_tool(std::span<const std::string_view> arguments,
     if (arguments[0] == "validate") {
       output << "valid\n";
     } else {
-      output << "{\"kind\":\"" << (summary->kind == AssetKind::skeleton ? "skeleton" : "clip")
+      const std::string_view kind = summary->kind == AssetKind::skeleton ? "skeleton"
+          : summary->kind == AssetKind::clip ? "clip" : "graph";
+      output << "{\"kind\":\"" << kind
              << "\",\"version\":" << summary->version << ",\"count\":"
              << summary->primary_count << ",\"bytes\":" << summary->byte_size << "}\n";
     }

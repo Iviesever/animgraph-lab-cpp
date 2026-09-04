@@ -1,5 +1,6 @@
 #include "animgraph/asset/codec.hpp"
 #include "animgraph/clip/clip.hpp"
+#include "animgraph/graph/graph.hpp"
 #include "test_support.hpp"
 
 #include <algorithm>
@@ -152,6 +153,27 @@ ANIMGRAPH_TEST(asset_parsers_survive_10000_bounded_random_inputs) {
     static_cast<void>(inspect_asset(bytes));
   }
   AG_CHECK(true);
+}
+
+ANIMGRAPH_TEST(graph_plan_asset_round_trip_is_stable_and_fail_closed) {
+  GraphBuilder builder;
+  const auto reference = builder.add_node(NodeType::reference_pose, "reference");
+  const auto output = builder.add_node(NodeType::output, "output");
+  builder.connect(PosePin{reference, 0}, PosePin{output, 0}).value();
+  builder.set_output(output);
+  const auto graph = compile_graph(builder.build()).value();
+  const auto encoded = encode_graph_plan(graph);
+  AG_CHECK(encoded.has_value());
+  const auto decoded = decode_graph_plan(*encoded);
+  AG_CHECK(decoded.has_value());
+  AG_CHECK_EQ(*decoded, canonical_plan_json(graph));
+  const auto reencoded = encode_graph_plan(graph);
+  AG_CHECK(reencoded.has_value());
+  AG_CHECK_EQ(*reencoded, *encoded);
+  AG_CHECK_EQ(inspect_asset(*encoded)->kind, AssetKind::graph);
+  auto corrupt = *encoded;
+  corrupt.back() ^= std::byte{1};
+  AG_CHECK(!decode_graph_plan(corrupt));
 }
 
 }  // namespace

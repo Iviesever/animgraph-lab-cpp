@@ -28,3 +28,19 @@ target_include_directories(animgraph_tests PRIVATE include tests)
 target_link_libraries(animgraph_tests PRIVATE animgraph)
 
 add_test(NAME animgraph_tests COMMAND animgraph_tests)
+
+add_executable(animgraph_property tests/property/property.cpp)
+target_link_libraries(animgraph_property PRIVATE animgraph)
+add_test(NAME animgraph_property COMMAND animgraph_property)
+
+add_executable(animgraph_fuzz tests/fuzz/fuzz.cpp)
+target_link_libraries(animgraph_fuzz PRIVATE animgraph)
+add_test(NAME animgraph_fuzz COMMAND animgraph_fuzz)
+
+option(ANIMGRAPH_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+if(ANIMGRAPH_ENABLE_SANITIZERS AND NOT MSVC)
+  foreach(target animgraph animgraph_lab animc animgraph_tests animgraph_property animgraph_fuzz)
+    target_compile_options(${target} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+    target_link_options(${target} PRIVATE -fsanitize=address,undefined)
+  endforeach()
+endif()

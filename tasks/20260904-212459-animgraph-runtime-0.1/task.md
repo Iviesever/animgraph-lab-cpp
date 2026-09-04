@@ -214,10 +214,10 @@ std::vector<EvaluationResult> evaluate_parallel(std::span<EvaluationJob>, std::s
 
 ### Task 9: Property, fuzz, sanitizer, documentation, and packages
 
-- [ ] Implement deterministic seeds for 10,000 valid and 10,000 invalid bounded
+- [x] Implement deterministic seeds for 10,000 valid and 10,000 invalid bounded
   skeleton/clip/graph cases; assert typed failure, invariants, identities, compression,
   and serial/parallel behavior.
-- [ ] Implement 100,000 bounded codec inputs including recomputed-CRC deep-parser data;
+- [x] Implement 100,000 bounded codec inputs including recomputed-CRC deep-parser data;
   run MSVC Release and an available ASan/UBSan Clang/GCC environment.
 - [ ] Run MQB Debug/Release, CMake MSVC Debug/Release, CTest, available Clang and GCC,
   and source-set drift verification; record missing environments honestly.

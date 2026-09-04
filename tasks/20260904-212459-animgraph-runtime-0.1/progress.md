@@ -64,7 +64,10 @@
 - PACT-70 passed 45/45 tests and CI run `33886878359`; exact-SHA Trace, Viewer,
   and 9-row benchmark artifacts were generated. Browser `file://` loading was
   policy-blocked and no workaround was attempted.
+- Added `.aggraph` v1 and passed 46/46 unit/integration tests. MQB/MSVC Release
+  passed 10,000 valid + 10,000 invalid properties, a 1,000-character batch oracle,
+  and 100,000 three-format fuzz inputs. CMake/MSVC Debug and Release passed 3/3.
 
 ## Next atomic action
 
-Commit PACT-70 artifacts, then run full property/fuzz/Release/sanitizer verification.
+Push property/fuzz and sanitizer CI, then write full documentation and packages.

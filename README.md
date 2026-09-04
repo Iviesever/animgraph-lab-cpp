@@ -44,6 +44,7 @@ The runtime feature work is tracked under
   events, and sync markers.
 - Byte-stable little-endian `.agskel`/`.agclip` version 1 assets with explicit
   bounds, offsets, string tables, finite-value checks, and CRC32 integrity.
+- A byte-stable `.aggraph` version 1 envelope for canonical compiled-plan JSON.
 - `animc compile|inspect|validate` for programmatic sample runtime assets.
 - Deterministic constant-track detection and error-bounded translation, quaternion,
   and scale key reduction with per-track byte/key/error reports.
@@ -63,6 +64,8 @@ The runtime feature work is tracked under
   15-instruction sample graph containing every P0 node type.
 - Real runtime Trace JSON, a self-contained Canvas debugger, an observed benchmark
   matrix, and CLI commands for sample/evaluate/benchmark/assets/viewer/verification.
+- Deterministic 10,000-valid/10,000-invalid property verification and a 100,000
+  input three-format fuzz harness with recomputed-CRC deep-parser cases.
 
 ## License
 
