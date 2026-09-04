@@ -32,6 +32,14 @@ implementation and evidence in this delivery cycle.
 The runtime feature work is tracked under
 `tasks/20260904-212459-animgraph-runtime-0.1/`.
 
+## Verified runtime foundations
+
+- Finite `Vec3`, xyzw `Quat`, and TRS `Transform` math with guarded normalization,
+  shortest-path interpolation, axis/from-to rotations, composition, and inversion.
+- Skeleton validation with one-root/cycle/parent/count checks and stable
+  parent-before-child compilation.
+- Local-pose to model-pose evaluation and model-to-skin matrix palettes.
+
 ## License
 
 MIT. See `LICENSE`.

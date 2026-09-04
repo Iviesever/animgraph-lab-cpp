@@ -87,13 +87,13 @@ std::expected<ModelPose, Error> local_to_model(const CompiledSkeleton&, const Lo
 std::expected<SkinMatrixPalette, Error> model_to_skin(const CompiledSkeleton&, const ModelPose&);
 ```
 
-- [ ] Add focused failing tests for normalization, q/-q shortest paths, exact
+- [x] Add focused failing tests for normalization, q/-q shortest paths, exact
   interpolation endpoints, 180 degrees, zero/NaN/Inf, compose/inverse, skeleton
   cycles/roots/unsorted remap, pose oracles, and 1/2/64/256-joint bounds.
-- [ ] Run only the new suite and save the expected missing-interface RED output.
-- [ ] Implement finite math with guarded normalization and SkeletonBuilder validation,
+- [x] Run only the new suite and save the expected missing-interface RED output.
+- [x] Implement finite math with guarded normalization and SkeletonBuilder validation,
   stable parent-before-child remapping, local/model transforms, and skin matrices.
-- [ ] Run the focused suite, all tests, MQB Debug twice, and CMake MSVC Debug.
+- [x] Run the focused suite, all tests, MQB Debug twice, and CMake MSVC Debug.
 - [ ] Update evidence/progress/handoff, commit `feat: add animation math and poses`, push.
 
 ### Task 3: PACT-20 clip sampling, events, markers, and asset version 1

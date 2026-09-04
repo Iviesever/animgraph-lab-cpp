@@ -15,7 +15,11 @@
   "discovery": {
     "enabled": true,
     "exclude_dirs": ["tasks", "tests"],
-    "extra_sources": ["src/core/version.cpp"]
+    "extra_sources": [
+      "src/core/version.cpp",
+      "src/math/math.cpp",
+      "src/skeleton/skeleton.cpp"
+    ]
   },
   "profiles": {
     "debug": {

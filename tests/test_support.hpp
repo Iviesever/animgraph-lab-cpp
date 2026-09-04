@@ -77,3 +77,13 @@ inline int run_all() {
       ::animgraph::test::fail(#actual " == " #expected, __FILE__, __LINE__);  \
     }                                                                         \
   } while (false)
+
+#define AG_CHECK_NEAR(actual, expected, tolerance)                            \
+  do {                                                                        \
+    const auto ag_actual = (actual);                                          \
+    const auto ag_expected = (expected);                                      \
+    const auto ag_tolerance = (tolerance);                                    \
+    if (std::abs(ag_actual - ag_expected) > ag_tolerance) {                   \
+      ::animgraph::test::fail(#actual " ~= " #expected, __FILE__, __LINE__); \
+    }                                                                         \
+  } while (false)
