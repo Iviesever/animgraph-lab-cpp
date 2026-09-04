@@ -3,6 +3,7 @@
 #include "animgraph/clip/clip.hpp"
 #include "animgraph/core/expected.hpp"
 #include "animgraph/graph/graph.hpp"
+#include "animgraph/ik/two_bone_ik.hpp"
 #include "animgraph/skeleton/skeleton.hpp"
 
 #include <cstdint>
@@ -52,6 +53,9 @@ struct EvaluationResult {
   Transform root_motion{Transform::identity()};
   std::uint32_t pose_cache_hits{};
   std::uint32_t pose_cache_misses{};
+  bool ik_applied{};
+  Vec3 ik_target{};
+  float ik_error{};
 };
 
 [[nodiscard]] Expected<GraphInstance, Error> make_graph_instance(

@@ -185,11 +185,11 @@ std::vector<EvaluationResult> evaluate_serial(std::span<EvaluationJob>);
 std::vector<EvaluationResult> evaluate_parallel(std::span<EvaluationJob>, std::size_t workers, std::stop_token={});
 ```
 
-- [ ] Add failing tests for reachable/extended/too-close/degenerate/pole/weight cases,
+- [x] Add failing tests for reachable/extended/too-close/degenerate/pole/weight cases,
   finite output, bone lengths, chain isolation, cancellation, join behavior, stable
   CharacterId order, event order, and serial/parallel tolerance equivalence.
-- [ ] Witness RED, implement analytic IK with stable fallback and optional angle clamp.
-- [ ] Implement fixed bounded `std::jthread` character workers with disjoint instance
+- [x] Witness RED, implement analytic IK with stable fallback and optional angle clamp.
+- [x] Implement fixed bounded `std::jthread` character workers with disjoint instance
   and scratch ownership; never detach.
 - [ ] Run all checks repeatedly at worker counts 1/2/4, update records, commit
   `feat: add two bone IK and batch evaluation`, push.

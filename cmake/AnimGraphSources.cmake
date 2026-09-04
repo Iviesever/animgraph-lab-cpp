@@ -11,6 +11,8 @@ set(ANIMGRAPH_SOURCES
   src/runtime/blend.cpp
   src/runtime/state_machine.cpp
   src/runtime/root_motion.cpp
+  src/ik/two_bone_ik.cpp
+  src/runtime/batch.cpp
 )
 
 set(ANIMGRAPH_TEST_SOURCES
@@ -22,4 +24,5 @@ set(ANIMGRAPH_TEST_SOURCES
   tests/compression_tests.cpp
   tests/graph_runtime_tests.cpp
   tests/blend_state_root_tests.cpp
+  tests/ik_batch_tests.cpp
 )

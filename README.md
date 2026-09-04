@@ -55,6 +55,10 @@ The runtime feature work is tracked under
 - Blend1D/triangle Blend2D, local-reference additive poses, hierarchy-propagated
   per-joint layers, deterministic state transitions/interruption, sync-marker time
   mapping, and loop-safe root-motion deltas.
+- Analytic model-space Two-Bone IK with stable pole fallback, reach/close handling,
+  optional bend limits, weighted local-rotation output, and compiled graph execution.
+- Stable CharacterId-ordered serial and bounded `std::jthread` batch evaluation with
+  unique instance ownership, cancellation, and explicit join-before-return.
 
 ## License
 

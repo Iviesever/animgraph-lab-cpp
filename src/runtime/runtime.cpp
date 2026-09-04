@@ -179,6 +179,23 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
                                         instance.root_motion_slots[instruction.inputs[1].value], weight);
         break;
       }
+      case NodeType::two_bone_ik: {
+        if (context.skeleton.joints.size() < 3) {
+          return make_unexpected(Error{ErrorCode::bounds, "TwoBoneIK requires at least three joints"});
+        }
+        copy_pose(output, instance.pose_slots[instruction.inputs[0].value]);
+        const Vec3 target{parameter(0, 0.0F), parameter(1, 0.0F), parameter(2, 0.0F)};
+        const auto solved = solve_two_bone_ik(context.skeleton, output,
+            TwoBoneIkRequest{JointId{0}, JointId{1}, JointId{2}, target,
+                             Vec3{0, 0, 1}, std::clamp(parameter(3, 1.0F), 0.0F, 1.0F),
+                             std::nullopt});
+        if (!solved) return make_unexpected(solved.error());
+        result.ik_applied = true;
+        result.ik_target = target;
+        result.ik_error = solved->target_error;
+        root_output = instance.root_motion_slots[instruction.inputs[0].value];
+        break;
+      }
       case NodeType::pose_cache: {
         auto& cache = instance.pose_caches[index];
         if (cache.valid && cache.frame == context.frame && cache.generation == context.generation &&
