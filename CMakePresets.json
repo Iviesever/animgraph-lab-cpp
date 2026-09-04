@@ -27,16 +27,6 @@
       }
     },
     {
-      "name": "msvc-vs2022-debug",
-      "displayName": "CI MSVC Debug (Visual Studio 2022)",
-      "generator": "Visual Studio 17 2022",
-      "architecture": "x64",
-      "binaryDir": "${sourceDir}/build/msvc-vs2022-debug",
-      "cacheVariables": {
-        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
-      }
-    },
-    {
       "name": "ninja-clang-debug",
       "displayName": "Clang Debug",
       "generator": "Ninja",
@@ -69,18 +59,12 @@
       "jobs": 4
     },
     {
-      "name": "msvc-vs2022-debug",
-      "configurePreset": "msvc-vs2022-debug",
-      "configuration": "Debug",
-      "jobs": 4
-    },
-    {
-      "name": "clang-debug",
+      "name": "ninja-clang-debug",
       "configurePreset": "ninja-clang-debug",
       "jobs": 4
     },
     {
-      "name": "gcc-debug",
+      "name": "ninja-gcc-debug",
       "configurePreset": "ninja-gcc-debug",
       "jobs": 4
     }
@@ -97,18 +81,12 @@
       "output": { "outputOnFailure": true }
     },
     {
-      "name": "msvc-vs2022-debug",
-      "configurePreset": "msvc-vs2022-debug",
-      "configuration": "Debug",
-      "output": { "outputOnFailure": true }
-    },
-    {
-      "name": "clang-debug",
+      "name": "ninja-clang-debug",
       "configurePreset": "ninja-clang-debug",
       "output": { "outputOnFailure": true }
     },
     {
-      "name": "gcc-debug",
+      "name": "ninja-gcc-debug",
       "configurePreset": "ninja-gcc-debug",
       "output": { "outputOnFailure": true }
     }

@@ -28,6 +28,9 @@
 - MQB/MSVC CLI and test smoke passed; repeated tests used compile/link cache.
 - CMake/Ninja/MSVC Debug built 7 steps; CTest passed 1/1.
 - CMake/MQB authoritative source lists match for 1 source.
+- CI run `33879018719` provided the expected integration RED: VS18 generator
+  mismatch on Windows and configure/build preset name mismatch on Linux. The
+  minimal repair uses the verified vcvars/Ninja script and aligned preset names.
 
 ## Next atomic action
 
