@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "build": {
+    "entry": "src/cli/main.cpp",
+    "configuration": "debug",
+    "architecture": "x64",
+    "standard": "23",
+    "type": "exe",
+    "runtime": "MTd",
+    "subsystem": "console",
+    "output": "animgraph_lab",
+    "include_dirs": ["include", "src"],
+    "compiler_args": ["/EHsc", "/W4", "/WX", "/permissive-", "/utf-8"]
+  },
+  "discovery": {
+    "enabled": true,
+    "exclude_dirs": ["tasks", "tests"],
+    "extra_sources": ["src/core/version.cpp"]
+  },
+  "profiles": {
+    "debug": {
+      "build": {
+        "configuration": "debug",
+        "runtime": "MTd",
+        "compiler_args": ["/Od", "/Z7", "/Ob0", "/RTC1"]
+      }
+    },
+    "release": {
+      "build": {
+        "configuration": "release",
+        "runtime": "MT",
+        "defines": ["NDEBUG"],
+        "compiler_args": ["/O2", "/Ob2"]
+      }
+    },
+    "tests-debug": {
+      "build": {
+        "configuration": "debug",
+        "runtime": "MTd",
+        "output": "animgraph_tests",
+        "compiler_args": ["/Od", "/Z7", "/Ob0", "/RTC1"]
+      }
+    },
+    "tests-release": {
+      "build": {
+        "configuration": "release",
+        "runtime": "MT",
+        "output": "animgraph_tests",
+        "defines": ["NDEBUG"],
+        "compiler_args": ["/O2", "/Ob2"]
+      }
+    }
+  }
+}

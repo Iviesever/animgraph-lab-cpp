@@ -1,0 +1,13 @@
+/.mqb/
+/build/
+/out/
+/artifacts/generated/
+/artifacts/release/*.zip
+/artifacts/release/*.exe
+/artifacts/release/*.pdb
+/.worktrees/
+*.user
+*.suo
+*.VC.db
+*.VC.VC.opendb
+.vs/

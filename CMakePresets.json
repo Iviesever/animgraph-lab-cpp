@@ -1,0 +1,116 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "msvc-local-debug",
+      "displayName": "Local MSVC Debug (developer environment)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/msvc-ninja-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "cl"
+      }
+    },
+    {
+      "name": "msvc-local-release",
+      "displayName": "Local MSVC Release (developer environment)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/msvc-ninja-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "cl"
+      }
+    },
+    {
+      "name": "msvc-vs2022-debug",
+      "displayName": "CI MSVC Debug (Visual Studio 2022)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/msvc-vs2022-debug",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
+      }
+    },
+    {
+      "name": "ninja-clang-debug",
+      "displayName": "Clang Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "ninja-gcc-debug",
+      "displayName": "GCC Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/gcc-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "msvc-local-debug",
+      "configurePreset": "msvc-local-debug",
+      "jobs": 4
+    },
+    {
+      "name": "msvc-local-release",
+      "configurePreset": "msvc-local-release",
+      "jobs": 4
+    },
+    {
+      "name": "msvc-vs2022-debug",
+      "configurePreset": "msvc-vs2022-debug",
+      "configuration": "Debug",
+      "jobs": 4
+    },
+    {
+      "name": "clang-debug",
+      "configurePreset": "ninja-clang-debug",
+      "jobs": 4
+    },
+    {
+      "name": "gcc-debug",
+      "configurePreset": "ninja-gcc-debug",
+      "jobs": 4
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "msvc-local-debug",
+      "configurePreset": "msvc-local-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "msvc-local-release",
+      "configurePreset": "msvc-local-release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "msvc-vs2022-debug",
+      "configurePreset": "msvc-vs2022-debug",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "clang-debug",
+      "configurePreset": "ninja-clang-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "gcc-debug",
+      "configurePreset": "ninja-gcc-debug",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}
