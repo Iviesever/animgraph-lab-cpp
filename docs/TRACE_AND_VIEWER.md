@@ -9,10 +9,13 @@ produced by `evaluate` and copied by Trace rather than reconstructed there.
 Timing and machine observations never enter asset or graph identity. Allocation
 count is `null` because no reliable allocator hook is claimed.
 
-`generate_viewer_html` embeds that JSON into one file with CSS and JavaScript—no
+`generate_viewer_html` embeds Base64-encoded JSON into one file with CSS and
+JavaScript—no
 CDN, Node runtime, or server. It draws Skeleton and Root Motion canvases and exposes
-play/pause, step, timeline scrub, local/model switch, state/transition, blend/cache,
-events, markers, Graph node highlighting, IK, compression, and a narrow breakpoint.
+play/pause, step, timeline scrub, hierarchy-correct local/model switch,
+state/transition, blend/cache, occurrence events, crossed markers, Runtime-executed
+Graph node highlighting, Foot/Hand IK target/pole overlays, compression bytes/error
+canvas, and a narrow breakpoint. Dynamic text is escaped before DOM insertion.
 
 The committed harness was prevented from loading local `file://` URLs by browser
 security policy and explicitly prohibited workarounds. Static tests verify controls,

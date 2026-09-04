@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.25)
 project(AnimGraphLab VERSION 0.1.0 LANGUAGES CXX)
 
+execute_process(
+  COMMAND git rev-parse HEAD
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+  OUTPUT_VARIABLE ANIMGRAPH_GIT_SHA
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  RESULT_VARIABLE ANIMGRAPH_GIT_RESULT
+)
+if(NOT ANIMGRAPH_GIT_RESULT EQUAL 0 OR ANIMGRAPH_GIT_SHA STREQUAL "")
+  set(ANIMGRAPH_GIT_SHA "unbound-source")
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -16,6 +27,7 @@ endif()
 
 add_library(animgraph STATIC ${ANIMGRAPH_SOURCES})
 target_include_directories(animgraph PUBLIC include)
+target_compile_definitions(animgraph PRIVATE ANIMGRAPH_GIT_SHA="${ANIMGRAPH_GIT_SHA}")
 
 add_executable(animgraph_lab src/cli/main.cpp)
 target_link_libraries(animgraph_lab PRIVATE animgraph)

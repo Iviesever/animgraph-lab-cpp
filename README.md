@@ -61,7 +61,7 @@ The runtime feature work is tracked under
 - Stable CharacterId-ordered serial and bounded `std::jthread` batch evaluation with
   unique instance ownership, cancellation, and explicit join-before-return.
 - A 15-joint procedural humanoid with Idle/Walk/Run/Turn/Aim/UpperLayer clips and a
-  15-instruction sample graph containing every P0 node type.
+  compiled sample graph containing every P0 node type plus Foot and Hand IK passes.
 - Real runtime Trace JSON, a self-contained Canvas debugger, an observed benchmark
   matrix, and CLI commands for sample/evaluate/benchmark/assets/viewer/verification.
 - Deterministic 10,000-valid/10,000-invalid property verification and a 100,000
@@ -87,7 +87,7 @@ The CLI commands are `sample`, `evaluate`, `benchmark`, `compile-asset`,
 
 ## Verification
 
-- Unit/integration: 46 named tests.
+- Unit/integration: 58 named tests.
 - Property: 10,000 valid + 10,000 invalid bounded cases and 1,000 serial/parallel jobs.
 - Fuzz: 100,000 bounded inputs across Skeleton, Clip, and Graph formats.
 - Toolchains: MSVC Debug/Release, Ubuntu Clang/GCC, and Clang ASan+UBSan.

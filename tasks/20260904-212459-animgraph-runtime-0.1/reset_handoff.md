@@ -1,9 +1,9 @@
 # Reset handoff
 
-- Current PACT: local packaging green; independent audit and browser QA remain.
-- Local HEAD: `9bb079193209baab09c9d728424ddad4b0a3852a` plus package evidence.
+- Current PACT: independent audit code fixes local-green; CI/package/browser QA remain.
+- Local HEAD: `c0c78ed` plus uncommitted audit cycle 2 changes.
 - Remote base: `origin/main@e1b85fbef4d78720bfb1fe060866c435a5ed48f3`.
-- Working tree: package manifest/SHA/evidence are uncommitted; ZIPs are ignored local artifacts.
+- Working tree: audit cycle 2 code/tests/docs are uncommitted; Release artifacts ignored.
 - Completed acceptance: objective/rules/tooling discovery, approved blueprint,
   witnessed RED, MQB/MSVC green, CMake/MSVC green, CTest 1/1, source drift check,
   all PACT-00/10/20/30 gates; PACT-40 local 27/27 tests, stable compiler/runtime,
@@ -14,4 +14,4 @@
   MSVC Debug/Release, ASan/UBSan CI `33888003456`, and clean-extraction package
   verification. Browser QA is policy-blocked.
 - Blocker: none.
-- Next command: commit/push package evidence, then dispatch the two read-only audits.
+- Next command: commit/push audit fixes and wait for four-way CI.

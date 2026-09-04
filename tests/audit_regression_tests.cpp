@@ -7,11 +7,13 @@
 #include "test_support.hpp"
 
 #include <array>
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <ranges>
 
 namespace {
 
@@ -195,6 +197,79 @@ ANIMGRAPH_TEST(pose_cache_same_frame_hit_does_not_advance_upstream_time) {
   const auto second=evaluate(context,graph,instance).value();
   AG_CHECK_EQ(instance.clip_times[0],time); AG_CHECK_EQ(second.pose_cache_hits,1U);
   AG_CHECK_EQ(first.pose.transforms,second.pose.transforms);
+}
+
+ANIMGRAPH_TEST(compiled_nodes_consume_bound_configuration_instead_of_global_defaults) {
+  const auto skeleton = one_joint();
+  std::array clips{event_clip("low","low"), event_clip("high","high")};
+  clips[0].tracks[0].translations[0].value.x = 0.0F;
+  clips[0].tracks[0].translations[1].value.x = 0.0F;
+  clips[1].tracks[0].translations[0].value.x = 10.0F;
+  clips[1].tracks[0].translations[1].value.x = 10.0F;
+  GraphBuilder builder;
+  const auto low=builder.add_node(NodeType::clip_player,"low");
+  const auto high=builder.add_node(NodeType::clip_player,"high");
+  builder.set_clip(low,0).value(); builder.set_clip(high,1).value();
+  const auto blend=builder.add_node(NodeType::blend_1d,"configured");
+  builder.configure_blend_1d(blend, {2.0F,4.0F}, "").value();
+  builder.connect(ValuePin{std::string{"speed"}}, ValuePin{blend,0}).value();
+  builder.connect(PosePin{low,0},PosePin{blend,0}).value();
+  builder.connect(PosePin{high,0},PosePin{blend,1}).value();
+  const auto output=builder.add_node(NodeType::output,"output");
+  builder.connect(PosePin{blend,0},PosePin{output,0}).value(); builder.set_output(output);
+  builder.add_parameter(GraphParameter{"speed",0.0F,false});
+  const auto graph=compile_graph(builder.build()).value(); auto instance=make_graph_instance(graph,1).value();
+  const std::array parameters{3.0F};
+  const EvaluationContext context{skeleton,clips,AnimTime{0},parameters,1,1};
+  AG_CHECK_NEAR(evaluate(context,graph,instance)->pose.transforms[0].translation.x,5.0F,1.0e-5F);
+  AG_CHECK_EQ(graph.instructions[2].parameter_indices.size(),1U);
+}
+
+ANIMGRAPH_TEST(compiled_layer_mask_and_state_marker_configuration_drive_runtime) {
+  const auto skeleton = compile_skeleton(RawSkeleton{{
+      RawJoint{.name="root",.parent=std::nullopt,.reference_local=Transform::identity(),.inverse_bind=Transform::identity(),.semantic=std::nullopt},
+      RawJoint{.name="child",.parent=0,.reference_local=Transform::identity(),.inverse_bind=Transform::identity(),.semantic=std::nullopt}}}).value();
+  auto base = event_clip("base","base_event");
+  auto layer = event_clip("layer","layer_event");
+  base.tracks[0].translations = {{AnimTime{0},Vec3{}},{AnimTime{10},Vec3{}}};
+  layer.tracks[0].translations = {{AnimTime{0},Vec3{10,0,0}},{AnimTime{10},Vec3{10,0,0}}};
+  JointTrack base_child; base_child.joint=JointId{1}; base_child.translations={{AnimTime{0},Vec3{}},{AnimTime{10},Vec3{}}};
+  JointTrack layer_child; layer_child.joint=JointId{1}; layer_child.translations={{AnimTime{0},Vec3{10,0,0}},{AnimTime{10},Vec3{10,0,0}}};
+  base.tracks.push_back(base_child); layer.tracks.push_back(layer_child);
+  std::array clips{base,layer};
+  GraphBuilder builder;
+  const auto a=builder.add_node(NodeType::clip_player,"base"); const auto b=builder.add_node(NodeType::clip_player,"layer");
+  builder.set_clip(a,0).value(); builder.set_clip(b,1).value();
+  const auto layered=builder.add_node(NodeType::layered_blend_per_bone,"mask");
+  builder.configure_layered(layered,{0.0F,1.0F},"weight").value();
+  builder.connect(PosePin{a,0},PosePin{layered,0}).value(); builder.connect(PosePin{b,0},PosePin{layered,1}).value();
+  const auto output=builder.add_node(NodeType::output,"output"); builder.connect(PosePin{layered,0},PosePin{output,0}).value();
+  builder.set_output(output); builder.add_parameter(GraphParameter{"weight",1,false});
+  auto graph=compile_graph(builder.build()).value(); auto instance=make_graph_instance(graph,2).value();
+  const std::array weight{1.0F}; const EvaluationContext context{skeleton,clips,AnimTime{0},weight,1,1};
+  const auto result=evaluate(context,graph,instance).value();
+  AG_CHECK_NEAR(result.pose.transforms[0].translation.x,0.0F,1.0e-5F);
+  AG_CHECK_NEAR(result.pose.transforms[1].translation.x,10.0F,1.0e-5F);
+
+  clips[0].markers={{AnimTime{2},"sync"}}; clips[1].markers={{AnimTime{7},"sync"}};
+  GraphBuilder state_builder;
+  const auto s0=state_builder.add_node(NodeType::clip_player,"s0"); const auto s1=state_builder.add_node(NodeType::clip_player,"s1");
+  state_builder.set_clip(s0,0).value(); state_builder.set_clip(s1,1).value();
+  const auto state=state_builder.add_node(NodeType::state_machine,"state");
+  StateMachineNodeConfig state_config;
+  state_config.definition.states={{StateId{0},"A",AnimTime{10}},{StateId{1},"B",AnimTime{10}}};
+  state_config.definition.entry=StateId{0};
+  state_config.definition.transitions={TransitionDefinition{StateId{0},StateId{1},
+      ParameterCondition{0,CompareOp::greater,0.5F},1,AnimTime{2},std::nullopt,std::string{"sync"},false}};
+  state_config.sync_clip_indices={0U,1U}; state_builder.configure_state_machine(state,std::move(state_config)).value();
+  state_builder.connect(PosePin{s0,0},PosePin{state,0}).value(); state_builder.connect(PosePin{s1,0},PosePin{state,1}).value();
+  const auto state_output=state_builder.add_node(NodeType::output,"output"); state_builder.connect(PosePin{state,0},PosePin{state_output,0}).value();
+  state_builder.set_output(state_output); state_builder.add_parameter(GraphParameter{"speed",0,false});
+  graph=compile_graph(state_builder.build()).value(); instance=make_graph_instance(graph,2).value();
+  const std::array speed{1.0F}; const EvaluationContext state_context{skeleton,clips,AnimTime{5},speed,1,1};
+  const auto state_result=evaluate(state_context,graph,instance).value();
+  AG_CHECK(std::ranges::find(state_result.sync_markers,std::string{"sync"})!=state_result.sync_markers.end());
+  AG_CHECK_EQ(instance.clip_times[1].ticks,0);
 }
 
 }  // namespace

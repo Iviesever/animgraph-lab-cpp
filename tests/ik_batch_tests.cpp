@@ -90,6 +90,11 @@ ANIMGRAPH_TEST(compiled_two_bone_ik_node_uses_the_shared_solver) {
   GraphBuilder builder;
   const auto reference = builder.add_node(NodeType::reference_pose, "reference");
   const auto ik = builder.add_node(NodeType::two_bone_ik, "ik");
+  TwoBoneIkNodeConfig ik_config;
+  ik_config.root = JointId{0}; ik_config.mid = JointId{1}; ik_config.end = JointId{2};
+  ik_config.pole = Vec3{0,0,1};
+  ik_config.parameters = {"p0_target_x","p1_target_y","p2_target_z","p3_weight"};
+  builder.configure_two_bone_ik(ik, std::move(ik_config)).value();
   builder.connect(PosePin{reference, 0}, PosePin{ik, 0}).value();
   const auto output = builder.add_node(NodeType::output, "output");
   builder.connect(PosePin{ik, 0}, PosePin{output, 0}).value();

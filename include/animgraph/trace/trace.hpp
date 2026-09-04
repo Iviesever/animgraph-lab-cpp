@@ -18,6 +18,7 @@ struct TraceFrame {
   LocalPose local_pose;
   ModelPose model_pose;
   std::string current_node;
+  std::vector<std::string> executed_nodes;
   std::string state;
   float transition{};
   std::vector<TraceClipTime> clip_times;
@@ -26,6 +27,7 @@ struct TraceFrame {
   std::uint32_t pose_cache_hits{};
   std::uint32_t pose_cache_misses{};
   std::vector<std::string> events;
+  std::vector<RuntimeEventOccurrence> event_occurrences;
   std::vector<std::string> sync_markers;
   Transform root_motion{Transform::identity()};
   Transform root_accumulated{Transform::identity()};
@@ -33,6 +35,7 @@ struct TraceFrame {
   Vec3 ik_target{};
   Vec3 ik_pole{};
   float ik_error{};
+  std::vector<IkObservation> ik_nodes;
   double evaluation_microseconds{};
   bool success{};
 };
@@ -45,6 +48,9 @@ struct TraceDocument {
   CompiledGraph graph;
   CompressionReport compression;
   std::vector<TraceFrame> frames;
+  bool success{true};
+  ErrorCode error_code{ErrorCode::invalid_argument};
+  std::string error_message;
 };
 
 struct BenchmarkRow {
@@ -64,6 +70,8 @@ struct BenchmarkRow {
   float max_rotation_error{};
   float max_scale_error{};
   std::size_t worker_count{};
+  std::uint64_t raw_nanoseconds{};
+  std::uint64_t compressed_nanoseconds{};
 };
 struct BenchmarkReport {
   std::string compiler;

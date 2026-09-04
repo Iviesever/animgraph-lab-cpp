@@ -37,6 +37,18 @@ struct BlendObservation {
   std::vector<float> weights;
 };
 
+struct IkObservation {
+  NodeId node;
+  std::string name;
+  JointId root;
+  JointId mid;
+  JointId end;
+  Vec3 target;
+  Vec3 pole;
+  float error{};
+  IkStatus status{IkStatus::degenerate};
+};
+
 struct EvaluationResult {
   LocalPose pose;
   std::vector<AnimationEvent> events;
@@ -46,6 +58,7 @@ struct EvaluationResult {
   std::uint32_t pose_cache_hits{};
   std::uint32_t pose_cache_misses{};
   std::string current_node;
+  std::vector<std::string> executed_nodes;
   std::string state;
   float transition_progress{};
   std::vector<BlendObservation> blends;
@@ -54,6 +67,7 @@ struct EvaluationResult {
   Vec3 ik_target{};
   Vec3 ik_pole{};
   float ik_error{};
+  std::vector<IkObservation> ik_nodes;
 };
 
 struct PoseCacheState {
@@ -80,6 +94,7 @@ struct GraphInstance {
   std::vector<std::uint8_t> initialized;
   std::vector<PoseCacheState> pose_caches;
   std::vector<RuntimeStateNode> state_nodes;
+  std::vector<std::optional<StateMachineInstance>> state_machines;
   std::vector<std::byte> state;
   Transform root_motion_accumulator{Transform::identity()};
   std::optional<EvaluationResult> memo;

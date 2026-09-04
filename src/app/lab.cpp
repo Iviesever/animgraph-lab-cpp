@@ -54,7 +54,7 @@ void usage(std::ostream& output) {
   output << "Usage: animgraph_lab <command>\n"
             "Commands:\n"
             "  sample\n"
-            "  evaluate --sample locomotion --trace <trace.json> [--git-sha <sha>]\n"
+            "  evaluate --sample locomotion --trace <trace.json>\n"
             "  benchmark --out <benchmark.json>\n"
             "  compile-asset <skeleton|clip> <output>\n"
             "  inspect-asset <asset>\n"
@@ -69,7 +69,10 @@ int run_lab(std::span<const std::string_view> arguments,
             std::ostream& output, std::ostream& error) {
   if (arguments.empty()) { usage(error); return 2; }
   const auto command = arguments.front();
-  if (command == "--version") { output << version_string() << '\n'; return 0; }
+  if (command == "--version") {
+    output << version_string() << " sha=" << build_git_sha() << '\n';
+    return 0;
+  }
   if (command == "compile-asset") {
     if (arguments.size() != 3) { usage(error); return 2; }
     const std::array forwarded{std::string_view{"compile"}, arguments[1], arguments[2]};
@@ -103,8 +106,7 @@ int run_lab(std::span<const std::string_view> arguments,
     const auto sample = option(arguments, "--sample");
     const auto trace_path = option(arguments, "--trace");
     if (!sample || *sample != "locomotion" || !trace_path) { usage(error); return 2; }
-    const auto git_sha = option(arguments, "--git-sha").value_or("unbound-source");
-    auto trace = generate_demo_trace(*demo, 60, AnimTime{800}, std::string{git_sha});
+    auto trace = generate_demo_trace(*demo, 60, AnimTime{800}, std::string{build_git_sha()});
     if (!trace) { error << trace.error().message << '\n'; return 1; }
     const auto written = write_text(std::filesystem::path{*trace_path}, trace_to_json(*trace));
     if (!written) { error << written.error().message << '\n'; return 1; }
@@ -122,12 +124,14 @@ int run_lab(std::span<const std::string_view> arguments,
     return 0;
   }
   if (command == "verify") {
-    const auto trace = generate_demo_trace(*demo, 4, AnimTime{800}, "working-tree");
+    const auto trace = generate_demo_trace(*demo, 4, AnimTime{800},
+                                           std::string{build_git_sha()});
     if (!trace || trace->frames.size() != 4 || demo->graph.instructions.size() < 10) {
       error << "runtime verification failed\n";
       return 1;
     }
     output << "{\"success\":true,\"version\":\"" << version_string()
+           << "\",\"git_sha\":\"" << build_git_sha()
            << "\",\"tests\":\"runtime-smoke\",\"nodes\":"
            << demo->graph.instructions.size() << "}\n";
     return 0;

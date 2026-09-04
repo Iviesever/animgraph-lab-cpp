@@ -1,5 +1,7 @@
 #include "animgraph/samples/procedural.hpp"
 
+#include "animgraph/runtime/blend.hpp"
+
 #include <cmath>
 #include <numbers>
 
@@ -96,6 +98,8 @@ Expected<DemoBundle, Error> make_locomotion_demo() {
       locomotion_clip("Turn", 0.5F, 0.25F, std::numbers::pi_v<float> / 2.0F),
       pose_clip("AimAdditive", {6, 7, 9, 10}, 0.35F),
       pose_clip("UpperBodyLayer", {3, 4, 6, 9}, -0.2F)};
+  demo.clips[0].markers = {{AnimTime{12'000}, "left_plant"},
+                           {AnimTime{36'000}, "right_plant"}};
 
   GraphBuilder builder;
   const auto reference = builder.add_node(NodeType::reference_pose, "ReferencePose");
@@ -110,34 +114,72 @@ Expected<DemoBundle, Error> make_locomotion_demo() {
                                    std::pair{aim, 4U}, std::pair{upper, 5U}}) {
     auto bound = builder.set_clip(node, clip);
     if (!bound) return make_unexpected(bound.error());
+    builder.configure_clip_player(node, JointId{0}, false).value();
   }
   const auto blend1d = builder.add_node(NodeType::blend_1d, "SpeedBlend1D");
+  builder.configure_blend_1d(blend1d, {0.0F, 1.0F}, "p0_target_x", 0.5F).value();
   builder.connect(PosePin{reference, 0}, PosePin{blend1d, 0}).value();
   builder.connect(PosePin{walk, 0}, PosePin{blend1d, 1}).value();
   const auto blend2d = builder.add_node(NodeType::blend_2d, "LocomotionBlend2D");
+  builder.configure_blend_2d(blend2d,
+      {GraphPoint2{0,0}, GraphPoint2{1,0}, GraphPoint2{0,1}},
+      {std::string{"p0_target_x"}, std::string{"p2_target_z"}}).value();
   builder.connect(PosePin{blend1d, 0}, PosePin{blend2d, 0}).value();
   builder.connect(PosePin{run, 0}, PosePin{blend2d, 1}).value();
   builder.connect(PosePin{turn, 0}, PosePin{blend2d, 2}).value();
   const auto state = builder.add_node(NodeType::state_machine, "LocomotionStateMachine");
+  StateMachineNodeConfig state_config;
+  state_config.definition.states = {{StateId{0}, "Idle", AnimTime{48'000}},
+                                    {StateId{1}, "Locomotion", AnimTime{48'000}}};
+  state_config.definition.entry = StateId{0};
+  state_config.definition.transitions = {
+      TransitionDefinition{StateId{0},StateId{1},ParameterCondition{0,CompareOp::greater_equal,0.5F},
+                           1,AnimTime{12'000},std::nullopt,std::string{"left_plant"},true},
+      TransitionDefinition{StateId{1},StateId{0},ParameterCondition{0,CompareOp::less,0.5F},
+                           1,AnimTime{12'000},std::nullopt,std::string{"left_plant"},true}};
+  state_config.sync_clip_indices = {0U, 1U};
+  builder.configure_state_machine(state, std::move(state_config)).value();
   builder.connect(PosePin{idle, 0}, PosePin{state, 0}).value();
   builder.connect(PosePin{blend2d, 0}, PosePin{state, 1}).value();
   const auto additive = builder.add_node(NodeType::additive, "AimAdditive");
+  builder.configure_additive(additive, "p3_ik_weight", 1.0F).value();
   builder.connect(PosePin{state, 0}, PosePin{additive, 0}).value();
   builder.connect(PosePin{aim, 0}, PosePin{additive, 1}).value();
   const auto layer = builder.add_node(NodeType::layered_blend_per_bone, "UpperBodyLayer");
+  const auto upper_mask = make_hierarchy_mask(demo.skeleton,
+      std::array{LayerBranch{JointId{3}, 1.0F}}).value();
+  builder.configure_layered(layer, upper_mask, "p3_ik_weight", 1.0F).value();
   builder.connect(PosePin{additive, 0}, PosePin{layer, 0}).value();
   builder.connect(PosePin{upper, 0}, PosePin{layer, 1}).value();
   const auto cache = builder.add_node(NodeType::pose_cache, "FinalPoseCache");
   builder.connect(PosePin{layer, 0}, PosePin{cache, 0}).value();
   const auto ik = builder.add_node(NodeType::two_bone_ik, "LeftFootIK");
+  TwoBoneIkNodeConfig ik_config;
+  ik_config.root = JointId{0}; ik_config.mid = JointId{1}; ik_config.end = JointId{2};
+  ik_config.pole = Vec3{0,0,1};
+  ik_config.parameters = {"p0_target_x","p1_target_y","p2_target_z","p3_ik_weight"};
+  ik_config.limit = JointLimit{0.05F, 3.10F};
+  builder.configure_two_bone_ik(ik, std::move(ik_config)).value();
   builder.connect(PosePin{cache, 0}, PosePin{ik, 0}).value();
+  const auto hand_ik = builder.add_node(NodeType::two_bone_ik, "LeftHandIK");
+  TwoBoneIkNodeConfig hand_config;
+  hand_config.root = JointId{6}; hand_config.mid = JointId{7}; hand_config.end = JointId{8};
+  hand_config.pole = Vec3{0,0,1};
+  hand_config.parameters = {"p4_hand_x","p5_hand_y","p6_hand_z","p7_hand_weight"};
+  hand_config.limit = JointLimit{0.05F, 3.10F};
+  builder.configure_two_bone_ik(hand_ik, std::move(hand_config)).value();
+  builder.connect(PosePin{ik, 0}, PosePin{hand_ik, 0}).value();
   const auto output = builder.add_node(NodeType::output, "Output");
-  builder.connect(PosePin{ik, 0}, PosePin{output, 0}).value();
+  builder.connect(PosePin{hand_ik, 0}, PosePin{output, 0}).value();
   builder.set_output(output);
   builder.add_parameter(GraphParameter{"p0_target_x", 0.5F, false});
   builder.add_parameter(GraphParameter{"p1_target_y", -1.5F, false});
   builder.add_parameter(GraphParameter{"p2_target_z", 0.0F, false});
   builder.add_parameter(GraphParameter{"p3_ik_weight", 1.0F, false});
+  builder.add_parameter(GraphParameter{"p4_hand_x", -1.4F, false});
+  builder.add_parameter(GraphParameter{"p5_hand_y", 2.0F, false});
+  builder.add_parameter(GraphParameter{"p6_hand_z", 0.2F, false});
+  builder.add_parameter(GraphParameter{"p7_hand_weight", 0.75F, false});
   demo.graph_description = builder.build();
   auto graph = compile_graph(demo.graph_description);
   if (!graph) return make_unexpected(graph.error());

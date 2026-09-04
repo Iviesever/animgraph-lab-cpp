@@ -308,9 +308,9 @@ bool valid_graph_plan_json(std::string_view plan, std::uint32_t node_count) {
       plan.find("\"instructions\":[") == std::string_view::npos) return false;
   std::size_t count = 0;
   std::size_t cursor = 0;
-  while ((cursor = plan.find("{\"id\":", cursor)) != std::string_view::npos) {
+  while ((cursor = plan.find("\"type\":\"", cursor)) != std::string_view::npos) {
     ++count;
-    cursor += 6;
+    cursor += 8;
   }
   return count == node_count;
 }

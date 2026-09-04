@@ -14,6 +14,11 @@ if (git -C $projectRoot status --porcelain) {
 if (-not (Test-Path -LiteralPath $releaseExe) -or -not (Test-Path -LiteralPath $animcExe)) {
   throw 'Release executables are missing; run scripts/run_cmake_msvc.ps1 -Configuration Release.'
 }
+$sha = git -C $projectRoot rev-parse HEAD
+$binaryVersion = & $releaseExe --version
+if ($LASTEXITCODE -ne 0 -or $binaryVersion -notmatch 'sha=([0-9a-f]{40})' -or $Matches[1] -ne $sha) {
+  throw "Release binary does not bind current clean HEAD. binary='$binaryVersion' head='$sha'"
+}
 
 function Assert-UnderArtifacts([string]$Path) {
   $artifacts = [IO.Path]::GetFullPath((Join-Path $projectRoot 'artifacts'))
@@ -31,12 +36,11 @@ if (Test-Path -LiteralPath $stagingRoot) {
 }
 New-Item -ItemType Directory -Force -Path $releaseRoot,$stagingRoot | Out-Null
 
-$sha = git -C $projectRoot rev-parse HEAD
 $shortSha = $sha.Substring(0, 8)
 $winZip = Join-Path $releaseRoot "AnimGraphLab-Win64-0.1.0-$shortSha.zip"
 $sourceZip = Join-Path $releaseRoot "AnimGraphLab-Source-0.1.0-$shortSha.zip"
 
-$directories = 'bin','samples\assets','samples\trace','samples\graph','viewer','docs'
+$directories = 'bin','samples\assets','samples\trace','samples\graph','viewer','docs','reports'
 foreach ($directory in $directories) {
   New-Item -ItemType Directory -Force -Path (Join-Path $stagingRoot $directory) | Out-Null
 }
@@ -44,13 +48,23 @@ Copy-Item -LiteralPath $releaseExe -Destination (Join-Path $stagingRoot 'bin\ani
 Copy-Item -LiteralPath $animcExe -Destination (Join-Path $stagingRoot 'bin\animc.exe')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'samples\assets\sample.agskel') -Destination (Join-Path $stagingRoot 'samples\assets')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'samples\assets\sample.agclip') -Destination (Join-Path $stagingRoot 'samples\assets')
-Copy-Item -LiteralPath (Join-Path $projectRoot 'samples\trace\locomotion.trace.json') -Destination (Join-Path $stagingRoot 'samples\trace')
-Copy-Item -LiteralPath (Join-Path $projectRoot 'viewer\animgraph_debugger.html') -Destination (Join-Path $stagingRoot 'viewer')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'README.md') -Destination $stagingRoot
 Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE') -Destination $stagingRoot
 Copy-Item -LiteralPath (Join-Path $projectRoot 'docs\PACKAGE_QUICK_START.md') -Destination (Join-Path $stagingRoot 'docs')
 
-$trace = Get-Content -Raw -LiteralPath (Join-Path $projectRoot 'samples\trace\locomotion.trace.json') | ConvertFrom-Json
+Push-Location $stagingRoot
+try {
+  & '.\bin\animgraph_lab.exe' evaluate --sample locomotion --trace 'samples\trace\locomotion.trace.json'
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  & '.\bin\animgraph_lab.exe' generate-viewer --trace 'samples\trace\locomotion.trace.json' --out 'viewer\animgraph_debugger.html'
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  & '.\bin\animgraph_lab.exe' benchmark --out 'reports\benchmark.json'
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+} finally {
+  Pop-Location
+}
+
+$trace = Get-Content -Raw -LiteralPath (Join-Path $stagingRoot 'samples\trace\locomotion.trace.json') | ConvertFrom-Json
 $trace.graph_plan | ConvertTo-Json -Depth 20 -Compress |
   Set-Content -Encoding utf8NoBOM -LiteralPath (Join-Path $stagingRoot 'samples\graph\locomotion.plan.json')
 

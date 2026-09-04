@@ -45,6 +45,7 @@ Expected<void, Error> validate_instance_layout(const CompiledGraph& graph,
       instance.clip_times.size() != graph.instructions.size() ||
       instance.pose_caches.size() != graph.instructions.size() ||
       instance.state_nodes.size() != graph.instructions.size() ||
+      instance.state_machines.size() != graph.instructions.size() ||
       instance.state.size() != graph.state_size || instance.joint_count != joint_count ||
       graph.output_slot.value >= graph.pose_slot_count) {
     return make_unexpected(Error{ErrorCode::size_mismatch, "graph instance layout mismatch"});
@@ -81,10 +82,18 @@ Expected<GraphInstance, Error> make_graph_instance(const CompiledGraph& graph,
   instance.initialized.resize(graph.pose_slot_count);
   instance.pose_caches.resize(graph.instructions.size());
   instance.state_nodes.resize(graph.instructions.size());
+  instance.state_machines.resize(graph.instructions.size());
   instance.state.resize(graph.state_size);
   for (auto& pose : instance.pose_slots) pose.transforms.resize(joint_count);
   for (auto& cache : instance.pose_caches) cache.pose.transforms.resize(joint_count);
   for (auto& events : instance.event_slots) events.reserve(max_events);
+  for (std::size_t index = 0; index < graph.instructions.size(); ++index) {
+    if (const auto* config = std::get_if<StateMachineNodeConfig>(&graph.instructions[index].config)) {
+      auto state = make_state_machine_instance(config->definition);
+      if (!state) return make_unexpected(state.error());
+      instance.state_machines[index] = std::move(*state);
+    }
+  }
   return instance;
 }
 
@@ -116,7 +125,10 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
   EvaluationResult result;
   result.events.reserve(max_events);
   result.event_occurrences.reserve(max_events);
-  const auto parameter = [&context](std::size_t index, float fallback) {
+  const auto parameter = [&context](const CompiledInstruction& instruction,
+                                    std::size_t binding, float fallback) {
+    if (binding >= instruction.parameter_indices.size()) return fallback;
+    const auto index = instruction.parameter_indices[binding];
     return index < context.parameters.size() ? context.parameters[index] : fallback;
   };
 
@@ -135,6 +147,7 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
     output_events.clear();
     Transform root_output = Transform::identity();
     result.current_node = instruction.name;
+    result.executed_nodes.push_back(instruction.name);
     switch (instruction.type) {
       case NodeType::reference_pose:
         for (std::size_t joint = 0; joint < context.skeleton.joints.size(); ++joint) {
@@ -143,6 +156,8 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         root_output = Transform::identity();
         break;
       case NodeType::clip_player: {
+        const auto* config = std::get_if<ClipPlayerNodeConfig>(&instruction.config);
+        if (!config) return make_unexpected(Error{ErrorCode::graph, "ClipPlayer config is missing"});
         if (!instruction.clip_index || *instruction.clip_index >= context.clips.size()) {
           return make_unexpected(Error{ErrorCode::bounds, "clip player index is invalid"});
         }
@@ -158,11 +173,14 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         copy_pose(output, sampled->pose);
         if (!context.skeleton.joints.empty()) {
           const auto motion = extract_root_motion(context.skeleton,
-              context.clips[*instruction.clip_index], JointId{0}, previous,
+              context.clips[*instruction.clip_index], config->root_motion_joint, previous,
               instance.clip_times[index]);
           if (!motion) return make_unexpected(motion.error());
           root_output = *motion;
         }
+        if (config->remove_root_motion)
+          apply_root_motion_policy(output, config->root_motion_joint,
+                                   RootMotionPosePolicy::remove);
         const auto occurrences = query_event_occurrences(
             context.clips[*instruction.clip_index], previous, instance.clip_times[index]);
         if (!occurrences) return make_unexpected(occurrences.error());
@@ -184,12 +202,16 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         break;
       }
       case NodeType::blend_1d: {
-        const float weight = std::clamp(parameter(0, 0.5F), 0.0F, 1.0F);
+        const auto* config = std::get_if<Blend1DNodeConfig>(&instruction.config);
+        if (!config) return make_unexpected(Error{ErrorCode::graph, "Blend1D config is missing"});
+        const float value = parameter(instruction, 0, config->fallback);
         const std::array samples{
-            Blend1DSample{0.0F, instance.pose_slots[instruction.inputs[0].value]},
-            Blend1DSample{1.0F, instance.pose_slots[instruction.inputs[1].value]}};
-        const auto blended = evaluate_blend_1d(samples, weight);
+            Blend1DSample{config->thresholds[0], instance.pose_slots[instruction.inputs[0].value]},
+            Blend1DSample{config->thresholds[1], instance.pose_slots[instruction.inputs[1].value]}};
+        const auto blended = evaluate_blend_1d(samples, value);
         if (!blended) return make_unexpected(blended.error());
+        const float weight = std::clamp((value - config->thresholds[0]) /
+            (config->thresholds[1] - config->thresholds[0]), 0.0F, 1.0F);
         copy_pose(output, *blended);
         if (weight < 1.0F) append_events(output_events,
             instance.event_slots[instruction.inputs[0].value]);
@@ -202,11 +224,15 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         break;
       }
       case NodeType::blend_2d: {
+        const auto* config = std::get_if<Blend2DNodeConfig>(&instruction.config);
+        if (!config) return make_unexpected(Error{ErrorCode::graph, "Blend2D config is missing"});
         const std::array samples{
-            Blend2DSample{Vec2{0, 0}, instance.pose_slots[instruction.inputs[0].value]},
-            Blend2DSample{Vec2{1, 0}, instance.pose_slots[instruction.inputs[1].value]},
-            Blend2DSample{Vec2{0, 1}, instance.pose_slots[instruction.inputs[2].value]}};
-        const auto blended = evaluate_blend_2d(samples, Vec2{parameter(0, 0.0F), parameter(1, 0.0F)});
+            Blend2DSample{Vec2{config->points[0].x, config->points[0].y}, instance.pose_slots[instruction.inputs[0].value]},
+            Blend2DSample{Vec2{config->points[1].x, config->points[1].y}, instance.pose_slots[instruction.inputs[1].value]},
+            Blend2DSample{Vec2{config->points[2].x, config->points[2].y}, instance.pose_slots[instruction.inputs[2].value]}};
+        const auto blended = evaluate_blend_2d(samples, Vec2{
+            parameter(instruction, 0, config->fallbacks[0]),
+            parameter(instruction, 1, config->fallbacks[1])});
         if (!blended) return make_unexpected(blended.error());
         copy_pose(output, blended->pose);
         for (std::size_t input = 0; input < 3; ++input)
@@ -223,10 +249,12 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         break;
       }
       case NodeType::additive: {
+        const auto* config = std::get_if<AdditiveNodeConfig>(&instruction.config);
+        if (!config) return make_unexpected(Error{ErrorCode::graph, "Additive config is missing"});
         LocalPose reference;
         reference.transforms.reserve(context.skeleton.joints.size());
         for (const auto& joint : context.skeleton.joints) reference.transforms.push_back(joint.reference_local);
-        const float weight = std::clamp(parameter(0, 1.0F), 0.0F, 1.0F);
+        const float weight = std::clamp(parameter(instruction, 0, config->fallback), 0.0F, 1.0F);
         const auto added = additive_pose(instance.pose_slots[instruction.inputs[0].value],
                                          instance.pose_slots[instruction.inputs[1].value], reference,
                                          weight);
@@ -241,8 +269,16 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         break;
       }
       case NodeType::layered_blend_per_bone: {
-        const float weight = std::clamp(parameter(0, 1.0F), 0.0F, 1.0F);
-        const std::vector<float> weights(context.skeleton.joints.size(), weight);
+        const auto* config = std::get_if<LayeredNodeConfig>(&instruction.config);
+        if (!config) return make_unexpected(Error{ErrorCode::graph, "Layer config is missing"});
+        const float weight = std::clamp(parameter(instruction, 0, config->fallback), 0.0F, 1.0F);
+        std::vector<float> weights(context.skeleton.joints.size(), weight);
+        if (!config->joint_weights.empty()) {
+          if (config->joint_weights.size() != weights.size())
+            return make_unexpected(Error{ErrorCode::size_mismatch, "layer mask does not match skeleton"});
+          for (std::size_t joint = 0; joint < weights.size(); ++joint)
+            weights[joint] = config->joint_weights[joint] * weight;
+        }
         const auto layered = layered_blend(instance.pose_slots[instruction.inputs[0].value],
                                            instance.pose_slots[instruction.inputs[1].value], weights);
         if (!layered) return make_unexpected(layered.error());
@@ -253,25 +289,29 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         result.blends.push_back(BlendObservation{instruction.node, instruction.name,
                                                  {1.0F - weight, weight}});
         root_output = blend_root_motion(instance.root_motion_slots[instruction.inputs[0].value],
-                                        instance.root_motion_slots[instruction.inputs[1].value], weight);
+                                        instance.root_motion_slots[instruction.inputs[1].value], weights.front());
         break;
       }
       case NodeType::two_bone_ik: {
-        if (context.skeleton.joints.size() < 3) {
-          return make_unexpected(Error{ErrorCode::bounds, "TwoBoneIK requires at least three joints"});
-        }
+        const auto* config = std::get_if<TwoBoneIkNodeConfig>(&instruction.config);
+        if (!config) return make_unexpected(Error{ErrorCode::graph, "TwoBoneIK config is missing"});
         copy_pose(output, instance.pose_slots[instruction.inputs[0].value]);
         append_events(output_events, instance.event_slots[instruction.inputs[0].value]);
-        const Vec3 target{parameter(0, 0.0F), parameter(1, 0.0F), parameter(2, 0.0F)};
+        const Vec3 target{parameter(instruction, 0, config->fallbacks[0]),
+                          parameter(instruction, 1, config->fallbacks[1]),
+                          parameter(instruction, 2, config->fallbacks[2])};
         const auto solved = solve_two_bone_ik(context.skeleton, output,
-            TwoBoneIkRequest{JointId{0}, JointId{1}, JointId{2}, target,
-                             Vec3{0, 0, 1}, std::clamp(parameter(3, 1.0F), 0.0F, 1.0F),
-                             std::nullopt});
+            TwoBoneIkRequest{config->root, config->mid, config->end, target,
+                             config->pole, std::clamp(parameter(instruction, 3, config->fallbacks[3]), 0.0F, 1.0F),
+                             config->limit});
         if (!solved) return make_unexpected(solved.error());
         result.ik_applied = true;
         result.ik_target = target;
-        result.ik_pole = Vec3{0, 0, 1};
+        result.ik_pole = config->pole;
         result.ik_error = solved->target_error;
+        result.ik_nodes.push_back(IkObservation{instruction.node, instruction.name,
+            config->root, config->mid, config->end, target, config->pole,
+            solved->target_error, solved->status});
         root_output = instance.root_motion_slots[instruction.inputs[0].value];
         break;
       }
@@ -299,37 +339,80 @@ Expected<EvaluationResult, Error> evaluate(const EvaluationContext& context,
         break;
       }
       case NodeType::state_machine: {
-        auto& state = instance.state_nodes[index];
-        const bool desired = parameter(0, 0.0F) >= 0.5F;
-        if (desired != state.target_state) {
-          state.target_state = desired;
-          state.transitioning = true;
-          state.elapsed = AnimTime{0};
+        const auto* config = std::get_if<StateMachineNodeConfig>(&instruction.config);
+        if (!config || !instance.state_machines[index])
+          return make_unexpected(Error{ErrorCode::graph, "StateMachine config or instance is missing"});
+        const auto update = update_state_machine(config->definition, context.parameters,
+                                                 context.delta, *instance.state_machines[index]);
+        if (!update) return make_unexpected(update.error());
+        if (!update->events.empty()) {
+          const auto transition = std::ranges::find_if(config->definition.transitions,
+              [&update](const TransitionDefinition& item) {
+                return item.source == update->source && item.target == update->target;
+              });
+          const auto source_state_position = std::ranges::find(
+              config->definition.states, update->source, &StateDefinition::id) -
+              config->definition.states.begin();
+          const auto target_state_position = std::ranges::find(
+              config->definition.states, update->target, &StateDefinition::id) -
+              config->definition.states.begin();
+          if (transition != config->definition.transitions.end() && transition->sync_marker &&
+              source_state_position < 2 && target_state_position < 2 &&
+              config->sync_clip_indices[source_state_position] &&
+              config->sync_clip_indices[target_state_position]) {
+            const auto source_clip = *config->sync_clip_indices[source_state_position];
+            const auto target_clip = *config->sync_clip_indices[target_state_position];
+            if (source_clip < context.clips.size() && target_clip < context.clips.size()) {
+              const auto source_player = std::ranges::find_if(graph.instructions,
+                  [source_clip](const CompiledInstruction& item) {
+                    return item.type == NodeType::clip_player && item.clip_index == source_clip;
+                  });
+              const auto target_player = std::ranges::find_if(graph.instructions,
+                  [target_clip](const CompiledInstruction& item) {
+                    return item.type == NodeType::clip_player && item.clip_index == target_clip;
+                  });
+              if (source_player != graph.instructions.end() && target_player != graph.instructions.end()) {
+                const auto source_instruction = static_cast<std::size_t>(source_player - graph.instructions.begin());
+                const auto target_instruction = static_cast<std::size_t>(target_player - graph.instructions.begin());
+                const auto synchronized = synchronize_to_marker(context.clips[source_clip],
+                    context.clips[target_clip], *transition->sync_marker,
+                    instance.clip_times[source_instruction]);
+                if (!synchronized) return make_unexpected(synchronized.error());
+                instance.clip_times[target_instruction] = *synchronized;
+                result.sync_markers.push_back(*transition->sync_marker);
+              }
+            }
+          }
         }
-        float weight = state.target_state ? 1.0F : 0.0F;
-        if (state.transitioning) {
-          state.elapsed.ticks += std::max<std::int64_t>(0, context.delta.ticks);
-          const float progress = std::clamp(static_cast<float>(state.elapsed.ticks) / 12'000.0F,
-                                            0.0F, 1.0F);
-          weight = state.target_state ? progress : 1.0F - progress;
-          if (progress >= 1.0F) state.transitioning = false;
-        }
-        const auto blended = blend_poses(instance.pose_slots[instruction.inputs[0].value],
-                                         instance.pose_slots[instruction.inputs[1].value], weight);
+        const auto state_index = [&config](StateId id) -> std::size_t {
+          const auto found = std::ranges::find(config->definition.states, id, &StateDefinition::id);
+          return static_cast<std::size_t>(found - config->definition.states.begin());
+        };
+        const auto source_index = state_index(update->source);
+        const auto target_index = state_index(update->target);
+        if (source_index >= 2 || target_index >= 2)
+          return make_unexpected(Error{ErrorCode::graph, "StateMachine state is not bound to a pose input"});
+        const float weight = update->source == update->target ? 0.0F : update->alpha;
+        const auto blended = blend_poses(instance.pose_slots[instruction.inputs[source_index].value],
+                                         instance.pose_slots[instruction.inputs[target_index].value], weight);
         if (!blended) return make_unexpected(blended.error());
         copy_pose(output, *blended);
         if (weight < 1.0F)
-          append_events(output_events, instance.event_slots[instruction.inputs[0].value]);
+          append_events(output_events, instance.event_slots[instruction.inputs[source_index].value]);
         if (weight > 0.0F)
-          append_events(output_events, instance.event_slots[instruction.inputs[1].value]);
-        result.state = state.target_state ? "Locomotion" : "Idle";
-        result.transition_progress = state.transitioning
-            ? std::clamp(static_cast<float>(state.elapsed.ticks) / 12'000.0F, 0.0F, 1.0F)
-            : 1.0F;
+          append_events(output_events, instance.event_slots[instruction.inputs[target_index].value]);
+        const auto visible_state = config->definition.states[target_index].name;
+        result.state = visible_state;
+        result.transition_progress = update->source == update->target ? 1.0F : update->alpha;
+        for (const auto& state_event : update->events) {
+          output_events.push_back(RuntimeEventOccurrence{
+              AnimationEvent{AnimTime{0}, state_event, 0}, AnimTime{0}, 0,
+              instruction.node, std::numeric_limits<std::size_t>::max()});
+        }
         result.blends.push_back(BlendObservation{instruction.node, instruction.name,
                                                  {1.0F - weight, weight}});
-        root_output = blend_root_motion(instance.root_motion_slots[instruction.inputs[0].value],
-                                        instance.root_motion_slots[instruction.inputs[1].value], weight);
+        root_output = blend_root_motion(instance.root_motion_slots[instruction.inputs[source_index].value],
+                                        instance.root_motion_slots[instruction.inputs[target_index].value], weight);
         break;
       }
       case NodeType::output:

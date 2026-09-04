@@ -13,4 +13,6 @@ An interruptible active transition treats its target as the source of the new
 transition. Non-interruptible transitions finish normally. The event policy emits
 `exit:<source>` and `enter:<target>` once when a transition is selected; subsequent
 crossfade frames do not repeat them. Graph evaluation stable-deduplicates identical
-clip `(time,name,payload)` events while retaining distinct contributors.
+clip occurrences by propagating active/crossfade pose branches; occurrence records
+retain absolute Tick, cycle, source node, and clip. Configured sync markers adjust
+the target ClipPlayer clock inside the same compiled runtime.

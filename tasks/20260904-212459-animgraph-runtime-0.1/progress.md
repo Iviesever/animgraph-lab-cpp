@@ -73,7 +73,10 @@
 - Clean HEAD `9bb07919` produced Win64 and Source ZIPs, manifest, and SHA-256 files.
   The Win64 ZIP passed isolated `verify/evaluate/generate-viewer` and the temporary
   extraction was removed.
+- Two read-only audits returned not-ready findings. Audit regression cycles now pass
+  58/58 plus enhanced Property/Fuzz and address the confirmed code-level
+  Blocker/High items. Final cross-compiler/sanitizer/package regeneration remains.
 
 ## Next atomic action
 
-Commit package evidence, run two independent audits, then fix confirmed findings.
+Commit audit fixes, rerun full CI/sanitizers, then regenerate final clean-HEAD package.

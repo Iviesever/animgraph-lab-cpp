@@ -182,6 +182,12 @@ ANIMGRAPH_TEST(compiled_runtime_executes_blend_additive_layer_and_state_nodes) {
     AG_CHECK(builder.set_clip(a, 0).has_value());
     AG_CHECK(builder.set_clip(b, 1).has_value());
     const auto operation = builder.add_node(type, "operation");
+    if (type == NodeType::blend_1d)
+      builder.configure_blend_1d(operation, {0.0F, 1.0F}, "weight").value();
+    else if (type == NodeType::additive)
+      builder.configure_additive(operation, "weight").value();
+    else if (type == NodeType::layered_blend_per_bone)
+      builder.configure_layered(operation, {}, "weight").value();
     AG_CHECK(builder.connect(PosePin{a, 0}, PosePin{operation, 0}).has_value());
     AG_CHECK(builder.connect(PosePin{b, 0}, PosePin{operation, 1}).has_value());
     const auto output = builder.add_node(NodeType::output, "output");
@@ -204,6 +210,9 @@ ANIMGRAPH_TEST(compiled_runtime_executes_blend_additive_layer_and_state_nodes) {
     AG_CHECK(builder.set_clip(players[index], index).has_value());
   }
   const auto blend = builder.add_node(NodeType::blend_2d, "blend2d");
+  builder.configure_blend_2d(blend,
+      {GraphPoint2{0,0}, GraphPoint2{1,0}, GraphPoint2{0,1}},
+      {std::string{"x"}, std::string{"y"}}).value();
   for (std::uint16_t pin = 0; pin < 3; ++pin)
     AG_CHECK(builder.connect(PosePin{players[pin], 0}, PosePin{blend, pin}).has_value());
   const auto output = builder.add_node(NodeType::output, "output");

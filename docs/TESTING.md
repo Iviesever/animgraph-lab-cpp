@@ -1,13 +1,14 @@
 # Testing
 
-The dependency-free test runner reports 56 named unit/integration tests. Behavior
+The dependency-free test runner reports 58 named unit/integration tests. Behavior
 entered through witnessed missing-interface or regression RED states before GREEN.
 Core coverage includes math, Skeleton/Pose, time/sampling, events/markers, three
 asset formats, compression, compiler validation, slot reuse, all P0 node executions,
 state/root/cache, IK, batch, CLI, Trace, Viewer generation, and benchmark shape.
 
-`animgraph_property` runs 10,000 valid and 10,000 invalid deterministic cases plus a
-1,000-character serial/parallel oracle. `animgraph_fuzz` runs 100,000 bounded inputs
+`animgraph_property` runs 10,000 varied valid and 10,000 typed invalid deterministic
+cases plus a 1,000-character serial/parallel oracle. Each valid case executes
+reuse/no-reuse plans and checks asset/plan identity. `animgraph_fuzz` runs 100,000 bounded inputs
 over Skeleton/Clip/Graph decoders, including random bytes, truncation, bad lengths,
 counts/offsets, NaN, checksum corruption, and recomputed-CRC deep paths.
 

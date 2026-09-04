@@ -4,7 +4,7 @@ From the extracted package directory:
 
 ```powershell
 ./bin/animgraph_lab.exe verify
-./bin/animgraph_lab.exe evaluate --sample locomotion --trace trace.json --git-sha packaged
+./bin/animgraph_lab.exe evaluate --sample locomotion --trace trace.json
 ./bin/animgraph_lab.exe generate-viewer --trace trace.json --out viewer.html
 ./bin/animgraph_lab.exe benchmark --out benchmark.json
 ./bin/animc.exe inspect samples/assets/sample.agskel
